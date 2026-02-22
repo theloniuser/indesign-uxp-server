@@ -37,7 +37,7 @@ export class ScriptExecutor {
 
             // Execute via AppleScript with persistent session
             const appleScript = `
-        tell application "Adobe InDesign 2025"
+        tell application "Adobe InDesign 2026"
           activate
           do script POSIX file "${tempScriptPath}" language javascript
         end tell
