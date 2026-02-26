@@ -1,0 +1,24 @@
+{
+  "manifestVersion": 5,
+  "id": "com.ads.indesign-bridge",
+  "name": "InDesign Bridge",
+  "version": "1.0.0",
+  "main": "index.html",
+  "host": {
+    "app": "ID",
+    "minVersion": "18.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "mainPanel",
+      "label": { "default": "Bridge Panel" }
+    }
+  ],
+  "requiredPermissions": {
+    "network": {
+      "domains": ["ws://127.0.0.1:3001"]
+    },
+    "allowCodeGenerationFromStrings": true
+  }
+}
