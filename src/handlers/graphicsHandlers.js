@@ -266,114 +266,52 @@ export class GraphicsHandlers {
             y,
             width,
             height,
-            linkImage = true,
-            createProxy = false,
-            applyObjectStyle = '',
-            imagePreference = {},
-            scale = 100,
-            fitMode = 'PROPORTIONALLY'
+            applyObjectStyle = ''
         } = args;
 
-        // Use session manager for positioning if coordinates not provided
         const positioning = sessionManager.getCalculatedPositioning({ x, y, width, height });
-        const escapedFilePath = escapeJsxString(filePath);
-        const escapedObjectStyle = escapeJsxString(applyObjectStyle);
 
-        const script = [
-            'if (app.documents.length === 0) {',
-            '  "No document open";',
-            '} else {',
-            '  var doc = app.activeDocument;',
-            '  var page = doc.pages[0];',
-            '  var imageFile;',
-            '  var image;',
-            '',
-            '  try {',
-            `    imageFile = File("${escapedFilePath}");`,
-            '    if (!imageFile.exists) {',
-            `      "ERROR: Image file not found: ${escapedFilePath}";`,
-            '    } else {',
-            '      // Place image',
-            `      image = page.rectangles.add();`,
-            `      image.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];`,
-            '',
-            '      // Place the image in the rectangle',
-            '      try {',
-            `        image.place(imageFile);`,
-            '',
-            '        // Note: Linking preferences are set automatically by InDesign',
-            '',
-            '        // Apply object style if specified',
-            `        if ("${escapedObjectStyle}" !== "") {`,
-            '          try {',
-            `            var objectStyle = doc.objectStyles.itemByName("${escapedObjectStyle}");`,
-            '            if (objectStyle.isValid) {',
-            '              image.appliedObjectStyle = objectStyle;',
-            '            }',
-            '          } catch (styleError) {',
-            '            // Object style not found, continue without it',
-            '          }',
-            '        }',
-            '',
-            '        // Apply image scaling and fitting options',
-            '        if (image.graphics.length > 0) {',
-            '          var graphic = image.graphics[0];',
-            '          if (graphic.constructor.name === "Image") {',
-            '            // Apply scaling',
-            `            if (${scale} !== 100) {`,
-            `              graphic.horizontalScale = ${scale};`,
-            `              graphic.verticalScale = ${scale};`,
-            '            }',
-            '',
-            '            // Set image fitting options',
-            `            if ("${fitMode}" === "FILL_FRAME") {`,
-            '              graphic.fit(FittingOptions.FILL_PROPORTIONALLY);',
-            `            } else if ("${fitMode}" === "FIT_CONTENT") {`,
-            '              graphic.fit(FittingOptions.FIT_CONTENT);',
-            `            } else if ("${fitMode}" === "FIT_FRAME") {`,
-            '              graphic.fit(FittingOptions.FIT_FRAME);',
-            '            } else {',
-            '              graphic.fit(FittingOptions.PROPORTIONALLY);',
-            '            }',
-            '',
-            '            // Set alignment',
-            '            graphic.horizontalAlignment = HorizontalAlignment.CENTER_ALIGN;',
-            '            graphic.verticalAlignment = VerticalAlignment.CENTER_ALIGN;',
-            '          }',
-            '        }',
-            '',
-            '        "SUCCESS: Image placed successfully at " + imageFile.fsName;',
-            '      } catch (placeError) {',
-            '        // Remove the rectangle if image placement failed',
-            '        image.remove();',
-            `        "ERROR: Failed to place image: " + placeError.message;`,
-            '      }',
-            '    }',
-            '  } catch (error) {',
-            '    "ERROR: Error placing image: " + error.message;',
-            '  }',
-            '}'
-        ].join('\n');
+        const code = `
+            if (app.documents.length === 0) {
+                return { success: false, error: 'No document open' };
+            }
+            const doc = app.activeDocument;
+            const page = doc.pages.item(0);
+            const rect = page.rectangles.add();
+            rect.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
 
-        const result = await ScriptExecutor.executeInDesignScript(script);
+            try {
+                rect.place(${JSON.stringify(filePath)});
 
-        // Check if the operation was successful
-        const isSuccess = result.includes("SUCCESS:") && !result.includes("ERROR:");
+                const objectStyleName = ${JSON.stringify(applyObjectStyle)};
+                if (objectStyleName) {
+                    try {
+                        const oStyle = doc.objectStyles.itemByName(objectStyleName);
+                        if (oStyle.isValid) rect.appliedObjectStyle = oStyle;
+                    } catch(e) {}
+                }
 
-        if (isSuccess) {
-            // Store the created item info in session
+                return { success: true, message: 'Image placed at ' + ${JSON.stringify(filePath)} };
+            } catch(e) {
+                rect.remove();
+                return { success: false, error: 'Failed to place image: ' + e.message };
+            }
+        `;
+
+        const result = await ScriptExecutor.executeViaUXP(code);
+
+        if (result?.success) {
             sessionManager.setLastCreatedItem({
                 type: 'image',
                 filePath: filePath,
                 position: positioning,
-                linkImage: linkImage,
                 objectStyle: applyObjectStyle
             });
         }
 
-        return isSuccess ?
-            formatResponse(result, "Place Image") :
-            formatErrorResponse(result, "Place Image");
+        return result?.success ?
+            formatResponse(result.message, "Place Image") :
+            formatErrorResponse(result?.error || 'Failed to place image', "Place Image");
     }
 
     /**

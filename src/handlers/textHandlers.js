@@ -40,102 +40,69 @@ export class TextHandlers {
             }
         }
 
-        const escapedContent = escapeJsxString(content);
-        const escapedFontName = escapeJsxString(fontName);
-        const escapedParagraphStyle = paragraphStyle ? escapeJsxString(paragraphStyle) : '';
-        const escapedCharacterStyle = characterStyle ? escapeJsxString(characterStyle) : '';
+        const code = `
+            if (app.documents.length === 0) {
+                return { success: false, error: 'No document open' };
+            }
+            const doc = app.activeDocument;
+            const page = doc.pages.item(0);
+            const frame = page.textFrames.add();
+            frame.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+            frame.contents = ${JSON.stringify(content)};
 
-        const script = [
-            'if (app.documents.length === 0) {',
-            '  "No document open";',
-            '} else {',
-            '  var doc = app.activeDocument;',
-            '  var page = doc.pages[0];',
-            '  var textFrame;',
-            '  var styleMessage = "";',
-            '',
-            '  try {',
-            '    // Create text frame',
-            `    textFrame = page.textFrames.add();`,
-            `    textFrame.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];`,
-            `    textFrame.contents = "${escapedContent}";`,
-            '',
-            '    // Apply paragraph style if specified',
-            `    if ("${escapedParagraphStyle}" !== "") {`,
-            '      try {',
-            `        var paragraphStyle = doc.paragraphStyles.itemByName("${escapedParagraphStyle}");`,
-            '        if (paragraphStyle.isValid) {',
-            '          textFrame.paragraphs[0].appliedParagraphStyle = paragraphStyle;',
-            `          styleMessage += "Paragraph style '${escapedParagraphStyle}' applied. ";`,
-            '        } else {',
-            `          styleMessage += "Paragraph style '${escapedParagraphStyle}' not found. ";`,
-            '        }',
-            '      } catch (styleError) {',
-            `        styleMessage += "Error applying paragraph style: " + styleError.message + ". ";`,
-            '      }',
-            '    }',
-            '',
-            '    // Apply character style if specified',
-            `    if ("${escapedCharacterStyle}" !== "") {`,
-            '      try {',
-            `        var characterStyle = doc.characterStyles.itemByName("${escapedCharacterStyle}");`,
-            '        if (characterStyle.isValid) {',
-            '          textFrame.texts[0].appliedCharacterStyle = characterStyle;',
-            `          styleMessage += "Character style '${escapedCharacterStyle}' applied. ";`,
-            '        } else {',
-            `          styleMessage += "Character style '${escapedCharacterStyle}' not found. ";`,
-            '        }',
-            '      } catch (styleError) {',
-            `        styleMessage += "Error applying character style: " + styleError.message + ". ";`,
-            '      }',
-            '    }',
-            '',
-            '    // Apply direct formatting only if no styles were applied',
-            `    if ("${escapedParagraphStyle}" === "" && "${escapedCharacterStyle}" === "") {`,
-            '      // Apply text formatting',
-            '      try {',
-            `        textFrame.texts[0].appliedFont = app.fonts.itemByName("${escapedFontName}");`,
-            '      } catch (fontError) {',
-            '        // Fallback to a default font if the specified font is not available',
-            '        textFrame.texts[0].appliedFont = app.fonts.itemByName("Arial\\tRegular");',
-            '      }',
-            `      textFrame.texts[0].pointSize = ${fontSize};`,
-            '',
-            '      // Apply color',
-            `      if ("${textColor}" !== "Black") {`,
-            '        try {',
-            `          textFrame.texts[0].fillColor = app.colors.itemByName("${textColor}");`,
-            '        } catch (colorError) {',
-            '          // Use default color if specified color not found',
-            '        }',
-            '      }',
-            '',
-            '      // Apply alignment',
-            `      if ("${alignment}" === "CENTER") {`,
-            '        textFrame.texts[0].justification = Justification.CENTER_ALIGN;',
-            `      } else if ("${alignment}" === "RIGHT") {`,
-            '        textFrame.texts[0].justification = Justification.RIGHT_ALIGN;',
-            `      } else if ("${alignment}" === "JUSTIFY") {`,
-            '        textFrame.texts[0].justification = Justification.FULLY_JUSTIFIED;',
-            '      } else {',
-            '        textFrame.texts[0].justification = Justification.LEFT_ALIGN;',
-            '      }',
-            '    }',
-            '',
-            '    "Text frame created successfully. " + styleMessage;',
-            '  } catch (error) {',
-            '    "Error creating text frame: " + error.message;',
-            '  }',
-            '}'
-        ].join('\n');
+            let styleMessage = '';
+            const paragraphStyleName = ${JSON.stringify(paragraphStyle)};
+            const characterStyleName = ${JSON.stringify(characterStyle)};
 
-        const result = await ScriptExecutor.executeInDesignScript(script);
+            if (paragraphStyleName) {
+                try {
+                    const pStyle = doc.paragraphStyles.itemByName(paragraphStyleName);
+                    if (pStyle.isValid) {
+                        frame.paragraphs.item(0).appliedParagraphStyle = pStyle;
+                        styleMessage += 'Paragraph style applied. ';
+                    } else {
+                        styleMessage += 'Paragraph style not found. ';
+                    }
+                } catch(e) {
+                    styleMessage += 'Error applying paragraph style: ' + e.message + '. ';
+                }
+            }
 
-        // Check if the operation was successful
-        const isSuccess = result.includes("Text frame created successfully");
+            if (characterStyleName) {
+                try {
+                    const cStyle = doc.characterStyles.itemByName(characterStyleName);
+                    if (cStyle.isValid) {
+                        frame.texts.item(0).appliedCharacterStyle = cStyle;
+                        styleMessage += 'Character style applied. ';
+                    }
+                } catch(e) {}
+            }
 
-        if (isSuccess) {
-            // Store the created item info in session
+            if (!paragraphStyleName && !characterStyleName) {
+                try {
+                    frame.texts.item(0).pointSize = ${fontSize};
+                } catch(e) {}
+                try {
+                    frame.texts.item(0).appliedFont = app.fonts.itemByName(${JSON.stringify(fontName)});
+                } catch(e) {
+                    try { frame.texts.item(0).appliedFont = app.fonts.itemByName('Arial\\tRegular'); } catch(e2) {}
+                }
+                if (${JSON.stringify(textColor)} !== 'Black') {
+                    try {
+                        frame.texts.item(0).fillColor = doc.colors.itemByName(${JSON.stringify(textColor)});
+                    } catch(e) {}
+                }
+                const alignMap = { CENTER: 'centerAlign', RIGHT: 'rightAlign', JUSTIFY: 'fullyJustified', LEFT: 'leftAlign' };
+                const alignKey = alignMap[${JSON.stringify(alignment)}] || 'leftAlign';
+                try { frame.texts.item(0).justification = alignKey; } catch(e) {}
+            }
+
+            return { success: true, message: 'Text frame created. ' + styleMessage };
+        `;
+
+        const result = await ScriptExecutor.executeViaUXP(code);
+
+        if (result?.success) {
             sessionManager.setLastCreatedItem({
                 type: 'textFrame',
                 content: content,
@@ -147,9 +114,9 @@ export class TextHandlers {
             });
         }
 
-        return isSuccess ?
-            formatResponse(result, "Create Text Frame") :
-            formatErrorResponse(result, "Create Text Frame");
+        return result?.success ?
+            formatResponse(result.message || 'Text frame created', "Create Text Frame") :
+            formatErrorResponse(result?.error || 'Failed to create text frame', "Create Text Frame");
     }
 
     /**

@@ -43,68 +43,48 @@ export class DocumentHandlers {
      * Get information about the active document
      */
     static async getDocumentInfo() {
-        const script = [
-            'try {',
-            '  if (app.documents.length === 0) {',
-            '    "No document open";',
-            '  } else {',
-            '    var doc = app.activeDocument;',
-            '    if (!doc) {',
-            '      // If no active document, try to get the first one',
-            '      if (app.documents.length > 0) {',
-            '        doc = app.documents[0];',
-            '        app.activeDocument = doc;',
-            '      } else {',
-            '        "No document open";',
-            '      }',
-            '    }',
-            '    ',
-            '    var info = "=== DOCUMENT INFO ===\\n";',
-            '    info += "Name: " + doc.name + "\\n";',
-            '    try {',
-            '      info += "Path: " + doc.filePath + "\\n";',
-            '    } catch (e) {',
-            '      info += "Path: Unsaved\\n";',
-            '    }',
-            '    info += "Pages: " + doc.pages.length + "\\n";',
-            '    info += "Spreads: " + doc.spreads.length + "\\n";',
-            '    info += "Layers: " + doc.layers.length + "\\n";',
-            '    info += "Master Spreads: " + doc.masterSpreads.length + "\\n";',
-            '    info += "Document Width: " + doc.documentPreferences.pageWidth + "\\n";',
-            '    info += "Document Height: " + doc.documentPreferences.pageHeight + "\\n";',
-            '    info += "Facing Pages: " + doc.documentPreferences.facingPages + "\\n";',
-            '    info += "Page Orientation: " + doc.documentPreferences.pageOrientation + "\\n";',
-            '    info += "Bleed Top: " + doc.documentPreferences.documentBleedTopOffset + "\\n";',
-            '    info += "Bleed Bottom: " + doc.documentPreferences.documentBleedBottomOffset + "\\n";',
-            '    info += "Bleed Inside: " + doc.documentPreferences.documentBleedInsideOrLeftOffset + "\\n";',
-            '    info += "Bleed Outside: " + doc.documentPreferences.documentBleedOutsideOrRightOffset + "\\n";',
-            '    info += "Margin Top: " + doc.marginPreferences.top + "\\n";',
-            '    info += "Margin Bottom: " + doc.marginPreferences.bottom + "\\n";',
-            '    info += "Margin Left: " + doc.marginPreferences.left + "\\n";',
-            '    info += "Margin Right: " + doc.marginPreferences.right + "\\n";',
-            '    info;',
-            '  }',
-            '} catch (error) {',
-            '  "Error getting document info: " + error.message;',
-            '}'
-        ].join('\n');
-
-        const result = await ScriptExecutor.executeInDesignScript(script);
-
-        // Store document info in session manager
-        if (result.includes("=== DOCUMENT INFO ===")) {
-            const docInfo = {
-                name: result.match(/Name: (.+)/)?.[1] || 'Unknown',
-                path: result.match(/Path: (.+)/)?.[1] || 'Unsaved',
-                pages: parseInt(result.match(/Pages: (\d+)/)?.[1] || '0'),
-                width: parseFloat(result.match(/Document Width: ([\d.]+)/)?.[1] || '0'),
-                height: parseFloat(result.match(/Document Height: ([\d.]+)/)?.[1] || '0')
+        const result = await ScriptExecutor.executeViaUXP(`
+            if (app.documents.length === 0) {
+                return { error: 'No document open' };
+            }
+            const doc = app.activeDocument;
+            let filePath = 'Unsaved';
+            try {
+                const fp = await doc.filePath;
+                filePath = fp ? (fp.nativePath || fp.url || String(fp) || 'Unsaved') : 'Unsaved';
+            } catch (e) {}
+            return {
+                name: doc.name,
+                filePath,
+                pages: doc.pages.length,
+                spreads: doc.spreads.length,
+                layers: doc.layers.length,
+                masterSpreads: doc.masterSpreads.length,
+                width: doc.documentPreferences.pageWidth,
+                height: doc.documentPreferences.pageHeight,
+                facingPages: doc.documentPreferences.facingPages,
+                bleedTop: doc.documentPreferences.documentBleedTopOffset,
+                bleedBottom: doc.documentPreferences.documentBleedBottomOffset,
+                bleedInside: doc.documentPreferences.documentBleedInsideOrLeftOffset,
+                bleedOutside: doc.documentPreferences.documentBleedOutsideOrRightOffset,
+                marginTop: doc.marginPreferences.top,
+                marginBottom: doc.marginPreferences.bottom,
+                marginLeft: doc.marginPreferences.left,
+                marginRight: doc.marginPreferences.right
             };
+        `);
 
-            sessionManager.setActiveDocument(docInfo);
+        if (result && !result.error) {
+            sessionManager.setActiveDocument({
+                name: result.name,
+                path: result.filePath,
+                pages: result.pages,
+                width: result.width,
+                height: result.height
+            });
             sessionManager.setPageDimensions({
-                width: docInfo.width,
-                height: docInfo.height
+                width: result.width,
+                height: result.height
             });
         }
 

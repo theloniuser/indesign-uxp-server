@@ -2,7 +2,7 @@
  * Export handlers
  */
 import { ScriptExecutor } from '../core/scriptExecutor.js';
-import { formatResponse, escapeJsxString } from '../utils/stringUtils.js';
+import { formatResponse, formatErrorResponse, escapeJsxString } from '../utils/stringUtils.js';
 
 export class ExportHandlers {
     /**
@@ -12,39 +12,26 @@ export class ExportHandlers {
         const {
             filePath,
             preset = 'High Quality Print',
-            includeBookmarks = true,
-            includeHyperlinks = true,
-            includeNonPrinting = false,
-            cropMarks = false,
-            bleedMarks = false,
-            registrationMarks = false,
-            colorBars = false,
-            pageInformationMarks = false
         } = args;
 
-        const escapedFilePath = escapeJsxString(filePath);
-        const escapedPreset = escapeJsxString(preset);
+        const code = `
+            const { ExportFormat } = require('indesign');
+            if (app.documents.length === 0) {
+                return { success: false, error: 'No document open' };
+            }
+            const doc = app.activeDocument;
+            try {
+                doc.exportFile(ExportFormat.pdfType, ${JSON.stringify(filePath)}, false, ${JSON.stringify(preset)});
+                return { success: true, message: 'PDF exported to ' + ${JSON.stringify(filePath)} };
+            } catch(e) {
+                return { success: false, error: 'Export failed: ' + e.message };
+            }
+        `;
 
-        const script = [
-            'if (app.documents.length === 0) {',
-            '  "No document open";',
-            '} else {',
-            '  var doc = app.activeDocument;',
-            '  var pdfFile = File("' + escapedFilePath + '");',
-            '',
-            '  try {',
-            '    // Export to PDF with preset',
-            '    doc.exportFile(ExportFormat.PDF_TYPE, pdfFile, false, "' + escapedPreset + '");',
-            '',
-            `    "PDF exported successfully to: ${escapedFilePath}";`,
-            '  } catch (error) {',
-            '    "Error exporting PDF: " + error.message;',
-            '  }',
-            '}'
-        ].join('\n');
-
-        const result = await ScriptExecutor.executeInDesignScript(script);
-        return formatResponse(result, "Export PDF");
+        const result = await ScriptExecutor.executeViaUXP(code);
+        return result?.success ?
+            formatResponse(result.message, "Export PDF") :
+            formatErrorResponse(result?.error || 'Failed to export PDF', "Export PDF");
     }
 
     /**
