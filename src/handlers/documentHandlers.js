@@ -106,24 +106,35 @@ export class DocumentHandlers {
             marginRight = 20
         } = args;
 
-        const orientationVal = pageOrientation === 'PORTRAIT' ? 'portrait' : 'landscape';
+        // Convert mm to points (1mm = 2.8346pt) for InDesign UXP API
+        const MM_TO_PT = 2.8346;
+        const wPt  = Math.round(width  * MM_TO_PT * 100) / 100;
+        const hPt  = Math.round(height * MM_TO_PT * 100) / 100;
+        const mTPt = Math.round(marginTop    * MM_TO_PT * 100) / 100;
+        const mBPt = Math.round(marginBottom * MM_TO_PT * 100) / 100;
+        const mLPt = Math.round(marginLeft   * MM_TO_PT * 100) / 100;
+        const mRPt = Math.round(marginRight  * MM_TO_PT * 100) / 100;
+        const bTPt = Math.round(bleedTop     * MM_TO_PT * 100) / 100;
+        const bBPt = Math.round(bleedBottom  * MM_TO_PT * 100) / 100;
+        const bIPt = Math.round(bleedInside  * MM_TO_PT * 100) / 100;
+        const bOPt = Math.round(bleedOutside * MM_TO_PT * 100) / 100;
+
         const code = `
-            const { PageOrientation } = require('indesign');
             const doc = app.documents.add();
-            doc.documentPreferences.pageWidth = ${width};
-            doc.documentPreferences.pageHeight = ${height};
+            doc.documentPreferences.pageWidth  = ${wPt};
+            doc.documentPreferences.pageHeight = ${hPt};
             doc.documentPreferences.facingPages = ${facingPages};
-            doc.documentPreferences.pageOrientation = PageOrientation.${orientationVal};
-            doc.documentPreferences.documentBleedTopOffset = ${bleedTop};
-            doc.documentPreferences.documentBleedBottomOffset = ${bleedBottom};
-            doc.documentPreferences.documentBleedInsideOrLeftOffset = ${bleedInside};
-            doc.documentPreferences.documentBleedOutsideOrRightOffset = ${bleedOutside};
-            doc.marginPreferences.top = ${marginTop};
-            doc.marginPreferences.bottom = ${marginBottom};
-            doc.marginPreferences.left = ${marginLeft};
-            doc.marginPreferences.right = ${marginRight};
+            doc.documentPreferences.documentBleedTopOffset           = ${bTPt};
+            doc.documentPreferences.documentBleedBottomOffset        = ${bBPt};
+            doc.documentPreferences.documentBleedInsideOrLeftOffset  = ${bIPt};
+            doc.documentPreferences.documentBleedOutsideOrRightOffset = ${bOPt};
+            const page = doc.pages.item(0);
+            page.marginPreferences.top    = ${mTPt};
+            page.marginPreferences.bottom = ${mBPt};
+            page.marginPreferences.left   = ${mLPt};
+            page.marginPreferences.right  = ${mRPt};
             app.activeDocument = doc;
-            return { success: true, name: doc.name };
+            return { success: true, name: doc.name, widthPt: ${wPt}, heightPt: ${hPt} };
         `;
 
         const result = await ScriptExecutor.executeViaUXP(code);
