@@ -19,8 +19,37 @@ function serializeResult(value) {
 
 async function handleExecute(ws, msg) {
   try {
-    // new Function injects `app` so code can access the InDesign DOM directly
-    const fn = new Function('app', `return (async () => { ${msg.code} })()`);
+    // new Function injects `app` so code can access the InDesign DOM directly.
+    // Auto-return: find the last meaningful line of code and wrap it with return
+    // so the value of the last expression is captured.
+    const code = msg.code.trimEnd();
+    const lines = code.split('\n');
+
+    // Find the last non-empty, non-brace-only line
+    let lastExprIdx = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const trimmed = lines[i].trim();
+      if (trimmed && trimmed !== '}' && trimmed !== '};') {
+        lastExprIdx = i;
+        break;
+      }
+    }
+
+    let wrappedCode;
+    if (lastExprIdx >= 0) {
+      const lastLine = lines[lastExprIdx].trim().replace(/;$/, '');
+      // Only add return if the last line looks like an expression (not a declaration/block)
+      if (!/^(var|let|const|function|if|for|while|switch|try|class|return)\s/.test(lastLine) && !lastLine.startsWith('}')) {
+        const before = lines.slice(0, lastExprIdx);
+        const after = lines.slice(lastExprIdx + 1);
+        wrappedCode = before.join('\n') + '\nreturn (' + lastLine + ');\n' + after.join('\n');
+      } else {
+        wrappedCode = code;
+      }
+    } else {
+      wrappedCode = code;
+    }
+    const fn = new Function('app', `return (async () => { ${wrappedCode} })()`);
     const result = await fn(app);
     ws.send(JSON.stringify({ type: 'result', id: msg.id, result: serializeResult(result) }));
   } catch (e) {
