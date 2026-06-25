@@ -2,7 +2,7 @@
  * Comprehensive Document management handlers
  * Merged from documentHandlers.js and documentAdvancedHandlers.js
  */
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse } from '../utils/stringUtils.js';
 import { sessionManager } from '../core/sessionManager.js';
@@ -181,6 +181,10 @@ export class DocumentHandlers {
      */
     static async openDocument(args) {
         const { filePath } = args;
+
+        if (!existsSync(filePath)) {
+            return formatErrorResponse(`File not found: ${filePath}`, "Open Document");
+        }
 
         const code = `
             await app.open(${JSON.stringify(filePath)});
@@ -714,15 +718,27 @@ export class DocumentHandlers {
             app.findTextPreferences.findWhat = ${JSON.stringify(searchText)};
             app.findTextPreferences.caseSensitive = ${caseSensitive};
             app.findTextPreferences.wholeWord = ${wholeWord};
-            const replaceText = ${JSON.stringify(replaceText || '')};
-            if (replaceText) {
-                app.changeTextPreferences.changeTo = replaceText;
+            try { app.findChangeTextOptions.includeMasterPages = true; } catch(e) {}
+            try { app.findChangeTextOptions.includeLockedLayersForFind = true; } catch(e) {}
+            try { app.findChangeTextOptions.includeLockedStoriesForFind = true; } catch(e) {}
+            try { app.findChangeTextOptions.includeHiddenLayers = true; } catch(e) {}
+            const replaceTextVal = ${JSON.stringify(replaceText || '')};
+            let _result;
+            if (replaceTextVal) {
+                app.changeTextPreferences.changeTo = replaceTextVal;
                 const found = doc.changeText();
-                return { success: true, action: 'replace', count: found.length, searchText: ${JSON.stringify(searchText)} };
+                _result = { success: true, action: 'replace', count: found.length, searchText: ${JSON.stringify(searchText)} };
             } else {
                 const found = doc.findText();
-                return { success: true, action: 'find', count: found.length, searchText: ${JSON.stringify(searchText)} };
+                _result = { success: true, action: 'find', count: found.length, searchText: ${JSON.stringify(searchText)} };
             }
+            app.findTextPreferences = NothingEnum.nothing;
+            app.changeTextPreferences = NothingEnum.nothing;
+            try { app.findChangeTextOptions.includeMasterPages = false; } catch(e) {}
+            try { app.findChangeTextOptions.includeLockedLayersForFind = false; } catch(e) {}
+            try { app.findChangeTextOptions.includeLockedStoriesForFind = false; } catch(e) {}
+            try { app.findChangeTextOptions.includeHiddenLayers = false; } catch(e) {}
+            return _result;
         `;
 
         const result = await ScriptExecutor.executeViaUXP(code);

@@ -369,6 +369,10 @@ export class TextHandlers {
 
                 app.findTextPreferences = null;
                 app.changeTextPreferences = null;
+                try { app.findChangeTextOptions.includeMasterPages = false; } catch(e) {}
+                try { app.findChangeTextOptions.includeLockedLayersForFind = false; } catch(e) {}
+                try { app.findChangeTextOptions.includeLockedStoriesForFind = false; } catch(e) {}
+                try { app.findChangeTextOptions.includeHiddenLayers = false; } catch(e) {}
 
                 return { success: true, count: count };
             } catch(e) {
