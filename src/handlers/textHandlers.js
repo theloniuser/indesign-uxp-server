@@ -357,6 +357,8 @@ export class TextHandlers {
 
                 app.changeGrepPreferences.changeTo = ${JSON.stringify(replaceText)};
 
+                try { app.findChangeGrepOptions.includeMasterPages = true; } catch(e) {}
+
                 const changed = doc.changeGrep();
                 const count = changed ? changed.length : 0;
 

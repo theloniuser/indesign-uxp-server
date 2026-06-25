@@ -183,11 +183,7 @@ export class DocumentHandlers {
         const { filePath } = args;
 
         const code = `
-            const file = new File(${JSON.stringify(filePath)});
-            if (!file.exists) {
-                return { success: false, error: 'File not found: ' + ${JSON.stringify(filePath)} };
-            }
-            await app.open(file);
+            await app.open(${JSON.stringify(filePath)});
             return { success: true, message: 'Document opened: ' + ${JSON.stringify(filePath)} };
         `;
 
@@ -211,7 +207,7 @@ export class DocumentHandlers {
             }
             const doc = app.activeDocument;
             ${filePath
-                ? `await doc.save(new File(${JSON.stringify(filePath)}));`
+                ? `await doc.save(${JSON.stringify(filePath)});`
                 : `
             let savedPath = null;
             try { const fp = await doc.filePath; savedPath = fp ? String(fp) : null; } catch(e) {}
@@ -381,12 +377,8 @@ export class DocumentHandlers {
                 return { success: false, error: 'No document open' };
             }
             const doc = app.activeDocument;
-            const dataFile = new File(${JSON.stringify(dataSource)});
-            if (!dataFile.exists) {
-                return { success: false, error: 'Data source file not found: ' + ${JSON.stringify(dataSource)} };
-            }
             const targetPageObj = doc.pages.item(${targetPage});
-            await doc.dataMerge(dataFile, targetPageObj, ${createNewPages}, ${removeUnusedPages});
+            await doc.dataMerge(${JSON.stringify(dataSource)}, targetPageObj, ${createNewPages}, ${removeUnusedPages});
             return { success: true, message: 'Data merge completed successfully' };
         `;
 
