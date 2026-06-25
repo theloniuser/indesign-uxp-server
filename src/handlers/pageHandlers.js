@@ -475,11 +475,11 @@ export class PageHandlers {
             return {
                 success: true,
                 pageName: page.name,
-                textFrames: page.textFrames.length,
-                rectangles: page.rectangles.length,
-                ellipses: page.ovals.length,
-                graphics: page.graphics.length,
-                groups: page.groups.length,
+                textFrames: page.textFrames?.length ?? 0,
+                rectangles: page.rectangles?.length ?? 0,
+                ellipses: page.ovals?.length ?? 0,
+                graphics: page.graphics?.length ?? 0,
+                groups: page.groups?.length ?? 0,
                 totalItems: page.allPageItems ? page.allPageItems.length : (page.pageItems ? page.pageItems.length : 0)
             };
         `;
