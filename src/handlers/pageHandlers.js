@@ -480,7 +480,7 @@ export class PageHandlers {
                 ellipses: page.ovals.length,
                 graphics: page.graphics.length,
                 groups: page.groups.length,
-                totalItems: page.allPageItems.length
+                totalItems: page.allPageItems ? page.allPageItems.length : (page.pageItems ? page.pageItems.length : 0)
             };
         `;
 

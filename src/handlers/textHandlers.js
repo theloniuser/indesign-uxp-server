@@ -348,22 +348,27 @@ export class TextHandlers {
             const doc = app.activeDocument;
 
             try {
-                app.findGrepPreferences = null;
-                app.changeGrepPreferences = null;
+                // Use changeText (literal) not changeGrep (regex) — grep engine treats
+                // parens, dots, brackets in item names as metacharacters and misfires.
+                app.findTextPreferences = null;
+                app.changeTextPreferences = null;
 
-                app.findGrepPreferences.findWhat = ${JSON.stringify(findText)};
-                app.findGrepPreferences.caseSensitive = ${caseSensitive};
-                app.findGrepPreferences.wholeWord = ${wholeWord};
+                app.findTextPreferences.findWhat = ${JSON.stringify(findText)};
+                app.findTextPreferences.caseSensitive = ${caseSensitive};
+                app.findTextPreferences.wholeWord = ${wholeWord};
 
-                app.changeGrepPreferences.changeTo = ${JSON.stringify(replaceText)};
+                app.changeTextPreferences.changeTo = ${JSON.stringify(replaceText)};
 
-                try { app.findChangeGrepOptions.includeMasterPages = true; } catch(e) {}
+                try { app.findChangeTextOptions.includeMasterPages = true; } catch(e) {}
+                try { app.findChangeTextOptions.includeLockedLayersForFind = true; } catch(e) {}
+                try { app.findChangeTextOptions.includeLockedStoriesForFind = true; } catch(e) {}
+                try { app.findChangeTextOptions.includeHiddenLayers = true; } catch(e) {}
 
-                const changed = doc.changeGrep();
+                const changed = doc.changeText();
                 const count = changed ? changed.length : 0;
 
-                app.findGrepPreferences = null;
-                app.changeGrepPreferences = null;
+                app.findTextPreferences = null;
+                app.changeTextPreferences = null;
 
                 return { success: true, count: count };
             } catch(e) {
