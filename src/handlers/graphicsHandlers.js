@@ -4,6 +4,8 @@
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse, escapeJsxString } from '../utils/stringUtils.js';
 import { sessionManager } from '../core/sessionManager.js';
+import { colorResolverSnippet } from '../utils/colorUtils.js';
+import { mmToPt, withPointsUnitsSnippet } from '../utils/geometryUtils.js';
 
 export class GraphicsHandlers {
     /**
@@ -35,6 +37,11 @@ export class GraphicsHandlers {
                 return pos;
             })();
 
+        const _xPt = mmToPt(positioning.x);
+        const _yPt = mmToPt(positioning.y);
+        const _x2Pt = mmToPt(positioning.x + positioning.width);
+        const _y2Pt = mmToPt(positioning.y + positioning.height);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -52,16 +59,14 @@ export class GraphicsHandlers {
 
             try {
                 const rect = page.rectangles.add();
-                rect.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+                ${withPointsUnitsSnippet(`rect.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
 
-                if (${JSON.stringify(fillColor || '')}) {
-                    try { rect.fillColor = doc.colors.itemByName(${JSON.stringify(fillColor || '')}); } catch(e) {}
-                }
-                if (${JSON.stringify(strokeColor || '')}) {
-                    try {
-                        rect.strokeColor = doc.colors.itemByName(${JSON.stringify(strokeColor || '')});
-                        rect.strokeWeight = ${strokeWidth};
-                    } catch(e) {}
+                ${colorResolverSnippet('_fillColor', fillColor)}
+                if (_fillColor) rect.fillColor = _fillColor;
+                ${colorResolverSnippet('_strokeColor', strokeColor)}
+                if (_strokeColor) {
+                    rect.strokeColor = _strokeColor;
+                    rect.strokeWeight = ${strokeWidth};
                 }
                 if (${cornerRadius} > 0) {
                     const { CornerOptions } = require('indesign');
@@ -125,6 +130,11 @@ export class GraphicsHandlers {
                 return pos;
             })();
 
+        const _xPt = mmToPt(positioning.x);
+        const _yPt = mmToPt(positioning.y);
+        const _x2Pt = mmToPt(positioning.x + positioning.width);
+        const _y2Pt = mmToPt(positioning.y + positioning.height);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -142,16 +152,14 @@ export class GraphicsHandlers {
 
             try {
                 const ellipse = page.ovals.add();
-                ellipse.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+                ${withPointsUnitsSnippet(`ellipse.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
 
-                if (${JSON.stringify(fillColor || '')}) {
-                    try { ellipse.fillColor = doc.colors.itemByName(${JSON.stringify(fillColor || '')}); } catch(e) {}
-                }
-                if (${JSON.stringify(strokeColor || '')}) {
-                    try {
-                        ellipse.strokeColor = doc.colors.itemByName(${JSON.stringify(strokeColor || '')});
-                        ellipse.strokeWeight = ${strokeWidth};
-                    } catch(e) {}
+                ${colorResolverSnippet('_fillColor', fillColor)}
+                if (_fillColor) ellipse.fillColor = _fillColor;
+                ${colorResolverSnippet('_strokeColor', strokeColor)}
+                if (_strokeColor) {
+                    ellipse.strokeColor = _strokeColor;
+                    ellipse.strokeWeight = ${strokeWidth};
                 }
 
                 return { success: true };
@@ -199,6 +207,11 @@ export class GraphicsHandlers {
             ? { x, y, width, height }
             : sessionManager.getCalculatedPositioning({ x, y, width, height });
 
+        const _xPt = mmToPt(positioning.x);
+        const _yPt = mmToPt(positioning.y);
+        const _x2Pt = mmToPt(positioning.x + positioning.width);
+        const _y2Pt = mmToPt(positioning.y + positioning.height);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -216,17 +229,15 @@ export class GraphicsHandlers {
 
             try {
                 const polygon = page.polygons.add();
-                polygon.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+                ${withPointsUnitsSnippet(`polygon.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
                 polygon.numberOfSides = ${sides};
 
-                if (${JSON.stringify(fillColor || '')}) {
-                    try { polygon.fillColor = doc.colors.itemByName(${JSON.stringify(fillColor || '')}); } catch(e) {}
-                }
-                if (${JSON.stringify(strokeColor || '')}) {
-                    try {
-                        polygon.strokeColor = doc.colors.itemByName(${JSON.stringify(strokeColor || '')});
-                        polygon.strokeWeight = ${strokeWidth};
-                    } catch(e) {}
+                ${colorResolverSnippet('_fillColor', fillColor)}
+                if (_fillColor) polygon.fillColor = _fillColor;
+                ${colorResolverSnippet('_strokeColor', strokeColor)}
+                if (_strokeColor) {
+                    polygon.strokeColor = _strokeColor;
+                    polygon.strokeWeight = ${strokeWidth};
                 }
 
                 return { success: true };
@@ -273,6 +284,11 @@ export class GraphicsHandlers {
             ? { x, y, width, height }
             : sessionManager.getCalculatedPositioning({ x, y, width, height });
 
+        const _xPt = mmToPt(positioning.x);
+        const _yPt = mmToPt(positioning.y);
+        const _x2Pt = mmToPt(positioning.x + positioning.width);
+        const _y2Pt = mmToPt(positioning.y + positioning.height);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -288,7 +304,7 @@ export class GraphicsHandlers {
                 catch(e) { page = doc.pages.item(0); }
             }
             const rect = page.rectangles.add();
-            rect.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+            ${withPointsUnitsSnippet(`rect.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
 
             try {
                 rect.place(${JSON.stringify(filePath)});
@@ -346,14 +362,12 @@ export class GraphicsHandlers {
             try {
                 const objectStyle = doc.objectStyles.add({ name: ${JSON.stringify(name)} });
 
-                if (${JSON.stringify(fillColor || '')}) {
-                    try { objectStyle.fillColor = doc.colors.itemByName(${JSON.stringify(fillColor || '')}); } catch(e) {}
-                }
-                if (${JSON.stringify(strokeColor || '')}) {
-                    try {
-                        objectStyle.strokeColor = doc.colors.itemByName(${JSON.stringify(strokeColor || '')});
-                        objectStyle.strokeWeight = ${strokeWeight};
-                    } catch(e) {}
+                ${colorResolverSnippet('_fillColor', fillColor)}
+                if (_fillColor) objectStyle.fillColor = _fillColor;
+                ${colorResolverSnippet('_strokeColor', strokeColor)}
+                if (_strokeColor) {
+                    objectStyle.strokeColor = _strokeColor;
+                    objectStyle.strokeWeight = ${strokeWeight};
                 }
                 if (${cornerRadius} > 0) {
                     const { CornerOptions } = require('indesign');

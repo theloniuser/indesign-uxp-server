@@ -3,6 +3,7 @@
  */
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse } from '../utils/stringUtils.js';
+import { colorResolverSnippet } from '../utils/colorUtils.js';
 
 export class PageItemHandlers {
     /**
@@ -149,12 +150,10 @@ export class PageItemHandlers {
             const page = doc.pages.item(${pageIndex});
             if (${itemIndex} < 0 || ${itemIndex} >= (page.allPageItems ? page.allPageItems.length : 0)) return { success: false, error: 'Page item index out of range' };
             const item = page.allPageItems[${itemIndex}];
-            if (${JSON.stringify(fillColor)} !== null && ${JSON.stringify(fillColor)} !== undefined) {
-                try { item.fillColor = doc.colors.itemByName(${JSON.stringify(fillColor)}); } catch(e) {}
-            }
-            if (${JSON.stringify(strokeColor)} !== null && ${JSON.stringify(strokeColor)} !== undefined) {
-                try { item.strokeColor = doc.colors.itemByName(${JSON.stringify(strokeColor)}); } catch(e) {}
-            }
+            ${fillColor != null ? colorResolverSnippet('_fillColor', fillColor) : ''}
+            ${fillColor != null ? 'if (_fillColor) item.fillColor = _fillColor;' : ''}
+            ${strokeColor != null ? colorResolverSnippet('_strokeColor', strokeColor) : ''}
+            ${strokeColor != null ? 'if (_strokeColor) item.strokeColor = _strokeColor;' : ''}
             if (${strokeWeight} !== null && ${strokeWeight} !== undefined) {
                 item.strokeWeight = ${strokeWeight};
             }

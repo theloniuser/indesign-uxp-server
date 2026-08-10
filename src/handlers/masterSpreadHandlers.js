@@ -3,6 +3,8 @@
  */
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse } from '../utils/stringUtils.js';
+import { colorResolverSnippet } from '../utils/colorUtils.js';
+import { mmToPt, withPointsUnitsSnippet } from '../utils/geometryUtils.js';
 
 export class MasterSpreadHandlers {
     /**
@@ -192,6 +194,10 @@ export class MasterSpreadHandlers {
             FULLY_JUSTIFIED: 'fullyJustified'
         };
         const uxpAlignment = alignmentMap[alignment] || 'leftAlign';
+        const _xPt = mmToPt(x);
+        const _yPt = mmToPt(y);
+        const _x2Pt = mmToPt(x + width);
+        const _y2Pt = mmToPt(y + height);
 
         const code = `
             if (app.documents.length === 0) return { success: false, error: 'No document open' };
@@ -201,7 +207,7 @@ export class MasterSpreadHandlers {
             const { Justification } = require('indesign');
             const page = masterSpread.pages.item(0);
             const textFrame = page.textFrames.add();
-            textFrame.geometricBounds = [${y}, ${x}, ${y + height}, ${x + width}];
+            ${withPointsUnitsSnippet(`textFrame.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
             textFrame.contents = ${JSON.stringify(content)};
             textFrame.texts.item(0).pointSize = ${fontSize};
             try { textFrame.texts.item(0).appliedFont = app.fonts.itemByName(${JSON.stringify(fontFamily)}); } catch(e) {}
@@ -230,10 +236,15 @@ export class MasterSpreadHandlers {
             y,
             width,
             height,
-            fillColor = "None",
-            strokeColor = "Black",
+            fillColor = "[None]",
+            strokeColor = "[Black]",
             strokeWeight = 1
         } = args;
+
+        const _xPt = mmToPt(x);
+        const _yPt = mmToPt(y);
+        const _x2Pt = mmToPt(x + width);
+        const _y2Pt = mmToPt(y + height);
 
         const code = `
             if (app.documents.length === 0) return { success: false, error: 'No document open' };
@@ -242,9 +253,11 @@ export class MasterSpreadHandlers {
             if (!masterSpread.isValid) return { success: false, error: 'Master spread not found: ' + ${JSON.stringify(masterName)} };
             const page = masterSpread.pages.item(0);
             const rectangle = page.rectangles.add();
-            rectangle.geometricBounds = [${y}, ${x}, ${y + height}, ${x + width}];
-            try { rectangle.fillColor = doc.colors.itemByName(${JSON.stringify(fillColor)}); } catch(e) {}
-            try { rectangle.strokeColor = doc.colors.itemByName(${JSON.stringify(strokeColor)}); } catch(e) {}
+            ${withPointsUnitsSnippet(`rectangle.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
+            ${colorResolverSnippet('_fillColor', fillColor)}
+            if (_fillColor) rectangle.fillColor = _fillColor;
+            ${colorResolverSnippet('_strokeColor', strokeColor)}
+            if (_strokeColor) rectangle.strokeColor = _strokeColor;
             rectangle.strokeWeight = ${strokeWeight};
             return {
                 success: true,

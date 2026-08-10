@@ -120,10 +120,23 @@ export class DocumentHandlers {
             marginRight = 20
         } = args;
 
+        // pageOrientation is authoritative: swap width/height so the longer
+        // edge matches the requested orientation, regardless of which the
+        // caller passed larger.
+        let finalWidth = width;
+        let finalHeight = height;
+        if (pageOrientation === 'LANDSCAPE' && finalWidth < finalHeight) {
+            [finalWidth, finalHeight] = [finalHeight, finalWidth];
+        } else if (pageOrientation === 'PORTRAIT' && finalWidth > finalHeight) {
+            [finalWidth, finalHeight] = [finalHeight, finalWidth];
+        }
+
+        const pageCount = Math.max(1, Math.round(pages));
+
         // Convert mm to points (1mm = 2.8346pt) for InDesign UXP API
         const MM_TO_PT = 2.8346;
-        const wPt  = Math.round(width  * MM_TO_PT * 100) / 100;
-        const hPt  = Math.round(height * MM_TO_PT * 100) / 100;
+        const wPt  = Math.round(finalWidth  * MM_TO_PT * 100) / 100;
+        const hPt  = Math.round(finalHeight * MM_TO_PT * 100) / 100;
         const mTPt = Math.round(marginTop    * MM_TO_PT * 100) / 100;
         const mBPt = Math.round(marginBottom * MM_TO_PT * 100) / 100;
         const mLPt = Math.round(marginLeft   * MM_TO_PT * 100) / 100;
@@ -148,16 +161,27 @@ export class DocumentHandlers {
             doc.documentPreferences.documentBleedBottomOffset        = ${bBPt};
             doc.documentPreferences.documentBleedInsideOrLeftOffset  = ${bIPt};
             doc.documentPreferences.documentBleedOutsideOrRightOffset = ${bOPt};
-            const page = doc.pages.item(0);
-            page.marginPreferences.top    = ${mTPt};
-            page.marginPreferences.bottom = ${mBPt};
-            page.marginPreferences.left   = ${mLPt};
-            page.marginPreferences.right  = ${mRPt};
+            doc.marginPreferences.top    = ${mTPt};
+            doc.marginPreferences.bottom = ${mBPt};
+            doc.marginPreferences.left   = ${mLPt};
+            doc.marginPreferences.right  = ${mRPt};
+            // doc.pages.add() inherits doc.marginPreferences set above; page 0
+            // predates that assignment so every page gets margins set explicitly below.
+            for (let i = doc.pages.length; i < ${pageCount}; i++) {
+                doc.pages.add();
+            }
+            for (let i = 0; i < doc.pages.length; i++) {
+                const p = doc.pages.item(i);
+                p.marginPreferences.top    = ${mTPt};
+                p.marginPreferences.bottom = ${mBPt};
+                p.marginPreferences.left   = ${mLPt};
+                p.marginPreferences.right  = ${mRPt};
+            }
             // Restore original units
             doc.viewPreferences.horizontalMeasurementUnits = savedH;
             doc.viewPreferences.verticalMeasurementUnits   = savedV;
             app.activeDocument = doc;
-            return { success: true, name: doc.name, widthPt: ${wPt}, heightPt: ${hPt} };
+            return { success: true, name: doc.name, widthPt: ${wPt}, heightPt: ${hPt}, pages: doc.pages.length };
         `;
 
         const result = await ScriptExecutor.executeViaUXP(code);
@@ -166,11 +190,11 @@ export class DocumentHandlers {
             sessionManager.setActiveDocument({
                 name: result.name || 'New Document',
                 path: 'Unsaved',
-                pages: pages,
-                width: width,
-                height: height
+                pages: result.pages || pageCount,
+                width: finalWidth,
+                height: finalHeight
             });
-            sessionManager.setPageDimensions({ width, height });
+            sessionManager.setPageDimensions({ width: finalWidth, height: finalHeight });
             return formatResponse(result, "Create Document");
         }
         return formatErrorResponse(result?.error || 'Failed to create document', "Create Document");

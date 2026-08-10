@@ -4,6 +4,8 @@
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse, escapeJsxString } from '../utils/stringUtils.js';
 import { sessionManager } from '../core/sessionManager.js';
+import { colorResolverSnippet } from '../utils/colorUtils.js';
+import { mmToPt, withPointsUnitsSnippet } from '../utils/geometryUtils.js';
 
 export class TextHandlers {
     /**
@@ -39,6 +41,11 @@ export class TextHandlers {
                 return pos;
             })();
 
+        const _xPt = mmToPt(positioning.x);
+        const _yPt = mmToPt(positioning.y);
+        const _x2Pt = mmToPt(positioning.x + positioning.width);
+        const _y2Pt = mmToPt(positioning.y + positioning.height);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -54,7 +61,7 @@ export class TextHandlers {
                 catch(e) { page = doc.pages.item(0); }
             }
             const frame = page.textFrames.add();
-            frame.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+            ${withPointsUnitsSnippet(`frame.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
             frame.contents = ${JSON.stringify(content)};
 
             let styleMessage = '';
@@ -95,9 +102,8 @@ export class TextHandlers {
                     try { frame.texts.item(0).appliedFont = app.fonts.itemByName('Arial\\tRegular'); } catch(e2) {}
                 }
                 if (${JSON.stringify(textColor)} !== 'Black') {
-                    try {
-                        frame.texts.item(0).fillColor = doc.colors.itemByName(${JSON.stringify(textColor)});
-                    } catch(e) {}
+                    ${colorResolverSnippet('_textColor', textColor)}
+                    if (_textColor) frame.texts.item(0).fillColor = _textColor;
                 }
                 const alignMap = { CENTER: 'centerAlign', RIGHT: 'rightAlign', JUSTIFY: 'fullyJustified', LEFT: 'leftAlign' };
                 const alignKey = alignMap[${JSON.stringify(alignment)}] || 'leftAlign';
@@ -167,10 +173,8 @@ export class TextHandlers {
                 try { textFrame.texts.item(0).appliedFont = app.fonts.itemByName(newFontName); } catch(e) {}
             }
 
-            const newTextColor = ${JSON.stringify(textColor || '')};
-            if (newTextColor !== '') {
-                try { textFrame.texts.item(0).fillColor = doc.colors.itemByName(newTextColor); } catch(e) {}
-            }
+            ${textColor ? colorResolverSnippet('_textColor', textColor) : ''}
+            ${textColor ? 'if (_textColor) textFrame.texts.item(0).fillColor = _textColor;' : ''}
 
             const newAlignment = ${JSON.stringify(alignment || '')};
             if (newAlignment !== '') {
@@ -209,6 +213,11 @@ export class TextHandlers {
             ? { x, y, width, height }
             : sessionManager.getCalculatedPositioning({ x, y, width, height });
 
+        const _xPt = mmToPt(positioning.x);
+        const _yPt = mmToPt(positioning.y);
+        const _x2Pt = mmToPt(positioning.x + positioning.width);
+        const _y2Pt = mmToPt(positioning.y + positioning.height);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -226,7 +235,7 @@ export class TextHandlers {
 
             try {
                 const textFrame = page.textFrames.add();
-                textFrame.geometricBounds = [${positioning.y}, ${positioning.x}, ${positioning.y + positioning.height}, ${positioning.x + positioning.width}];
+                ${withPointsUnitsSnippet(`textFrame.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
 
                 const table = textFrame.insertionPoints.item(0).tables.add({
                     bodyRowCount: ${rows},

@@ -4,6 +4,7 @@
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse } from '../utils/stringUtils.js';
 import { sessionManager } from '../core/sessionManager.js';
+import { colorResolverSnippet } from '../utils/colorUtils.js';
 
 export class StyleHandlers {
     /**
@@ -33,10 +34,8 @@ export class StyleHandlers {
             }
             style.pointSize = ${fontSize};
             if (${JSON.stringify(textColor)} !== 'Black') {
-                try {
-                    const color = doc.colors.itemByName(${JSON.stringify(textColor)});
-                    if (color.isValid) style.fillColor = color;
-                } catch (e) {}
+                ${colorResolverSnippet('_textColor', textColor)}
+                if (_textColor) style.fillColor = _textColor;
             }
             const alignMap = {
                 CENTER_ALIGN: Justification.centerAlign,
@@ -87,10 +86,8 @@ export class StyleHandlers {
             }
             style.pointSize = ${fontSize};
             if (${JSON.stringify(textColor)} !== 'Black') {
-                try {
-                    const color = doc.colors.itemByName(${JSON.stringify(textColor)});
-                    if (color.isValid) style.fillColor = color;
-                } catch (e) {}
+                ${colorResolverSnippet('_textColor', textColor)}
+                if (_textColor) style.fillColor = _textColor;
             }
             style.fontStyle = ${JSON.stringify(bold && italic ? 'Bold Italic' : bold ? 'Bold' : italic ? 'Italic' : 'Regular')};
             style.underline = ${underline};

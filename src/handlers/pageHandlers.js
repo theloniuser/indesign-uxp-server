@@ -3,6 +3,7 @@
  */
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse } from '../utils/stringUtils.js';
+import { colorResolverSnippet } from '../utils/colorUtils.js';
 
 export class PageHandlers {
     /**
@@ -494,7 +495,7 @@ export class PageHandlers {
      * Set page background by creating a full-page rectangle
      */
     static async setPageBackground(args) {
-        const { pageIndex = 0, backgroundColor = 'White', opacity = 100 } = args;
+        const { pageIndex = 0, backgroundColor = '#ffffff', opacity = 100 } = args;
 
         const code = `
             if (app.documents.length === 0) return { success: false, error: 'No document open' };
@@ -506,20 +507,15 @@ export class PageHandlers {
             const pageHeight = pageBounds[2] - pageBounds[0];
             const backgroundRect = page.rectangles.add();
             backgroundRect.geometricBounds = [0, 0, pageHeight, pageWidth];
-            const colorName = ${JSON.stringify(backgroundColor)};
-            if (colorName !== 'White') {
-                try {
-                    const bgColor = doc.colors.itemByName(colorName);
-                    backgroundRect.fillColor = bgColor.isValid ? bgColor : doc.colors.itemByName('White');
-                } catch (e) {
-                    backgroundRect.fillColor = doc.colors.itemByName('White');
-                }
-            } else {
-                backgroundRect.fillColor = doc.colors.itemByName('White');
+            ${colorResolverSnippet('_bgColor', backgroundColor)}
+            if (!_bgColor) {
+                ${colorResolverSnippet('_bgColorFallback', '#ffffff')}
+                _bgColor = _bgColorFallback;
             }
+            if (_bgColor) backgroundRect.fillColor = _bgColor;
             backgroundRect.transparencySettings.blendingSettings.opacity = ${opacity};
             backgroundRect.sendToBack();
-            return { success: true, backgroundColor: colorName, opacity: ${opacity} };
+            return { success: true, backgroundColor: ${JSON.stringify(backgroundColor)}, opacity: ${opacity} };
         `;
 
         const result = await ScriptExecutor.executeViaUXP(code);
