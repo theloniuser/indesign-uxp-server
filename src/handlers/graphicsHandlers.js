@@ -41,7 +41,7 @@ export class GraphicsHandlers {
         const _yPt = mmToPt(positioning.y);
         const _x2Pt = mmToPt(positioning.x + positioning.width);
         const _y2Pt = mmToPt(positioning.y + positioning.height);
-        const _cornerRadiusPt = mmToPt(cornerRadius);
+        const _cornerRadiusPt = mmToPt(Number(cornerRadius) || 0);
 
         const code = `
             if (app.documents.length === 0) {
@@ -62,7 +62,7 @@ export class GraphicsHandlers {
                 const rect = page.rectangles.add();
                 ${withPointsUnitsSnippet(`
                 rect.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];
-                if (${cornerRadius} > 0) {
+                if (${_cornerRadiusPt} > 0) {
                     const { CornerOptions } = require('indesign');
                     rect.topLeftCornerOption = CornerOptions.roundedCorner;
                     rect.topRightCornerOption = CornerOptions.roundedCorner;
@@ -356,7 +356,7 @@ export class GraphicsHandlers {
             transparency = 100
         } = args;
 
-        const _cornerRadiusPt = mmToPt(cornerRadius);
+        const _cornerRadiusPt = mmToPt(Number(cornerRadius) || 0);
 
         const code = `
             if (app.documents.length === 0) {
@@ -374,7 +374,7 @@ export class GraphicsHandlers {
                     objectStyle.strokeColor = _strokeColor;
                     objectStyle.strokeWeight = ${strokeWeight};
                 }
-                if (${cornerRadius} > 0) {
+                if (${_cornerRadiusPt} > 0) {
                     ${withPointsUnitsSnippet(`
                     const { CornerOptions } = require('indesign');
                     objectStyle.topLeftCornerOption = CornerOptions.roundedCorner;
