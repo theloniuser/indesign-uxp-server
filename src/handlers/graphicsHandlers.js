@@ -41,6 +41,7 @@ export class GraphicsHandlers {
         const _yPt = mmToPt(positioning.y);
         const _x2Pt = mmToPt(positioning.x + positioning.width);
         const _y2Pt = mmToPt(positioning.y + positioning.height);
+        const _cornerRadiusPt = mmToPt(cornerRadius);
 
         const code = `
             if (app.documents.length === 0) {
@@ -59,7 +60,17 @@ export class GraphicsHandlers {
 
             try {
                 const rect = page.rectangles.add();
-                ${withPointsUnitsSnippet(`rect.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];`)}
+                ${withPointsUnitsSnippet(`
+                rect.geometricBounds = [${_yPt}, ${_xPt}, ${_y2Pt}, ${_x2Pt}];
+                if (${cornerRadius} > 0) {
+                    const { CornerOptions } = require('indesign');
+                    rect.topLeftCornerOption = CornerOptions.roundedCorner;
+                    rect.topRightCornerOption = CornerOptions.roundedCorner;
+                    rect.bottomLeftCornerOption = CornerOptions.roundedCorner;
+                    rect.bottomRightCornerOption = CornerOptions.roundedCorner;
+                    rect.cornerRadius = ${_cornerRadiusPt};
+                }
+                `)}
 
                 ${colorResolverSnippet('_fillColor', fillColor)}
                 if (_fillColor) rect.fillColor = _fillColor;
@@ -67,14 +78,6 @@ export class GraphicsHandlers {
                 if (_strokeColor) {
                     rect.strokeColor = _strokeColor;
                     rect.strokeWeight = ${strokeWidth};
-                }
-                if (${cornerRadius} > 0) {
-                    const { CornerOptions } = require('indesign');
-                    rect.topLeftCornerOption = CornerOptions.roundedCorner;
-                    rect.topRightCornerOption = CornerOptions.roundedCorner;
-                    rect.bottomLeftCornerOption = CornerOptions.roundedCorner;
-                    rect.bottomRightCornerOption = CornerOptions.roundedCorner;
-                    rect.cornerRadius = ${cornerRadius};
                 }
 
                 return { success: true };
@@ -353,6 +356,8 @@ export class GraphicsHandlers {
             transparency = 100
         } = args;
 
+        const _cornerRadiusPt = mmToPt(cornerRadius);
+
         const code = `
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
@@ -370,12 +375,14 @@ export class GraphicsHandlers {
                     objectStyle.strokeWeight = ${strokeWeight};
                 }
                 if (${cornerRadius} > 0) {
+                    ${withPointsUnitsSnippet(`
                     const { CornerOptions } = require('indesign');
                     objectStyle.topLeftCornerOption = CornerOptions.roundedCorner;
                     objectStyle.topRightCornerOption = CornerOptions.roundedCorner;
                     objectStyle.bottomLeftCornerOption = CornerOptions.roundedCorner;
                     objectStyle.bottomRightCornerOption = CornerOptions.roundedCorner;
-                    objectStyle.cornerRadius = ${cornerRadius};
+                    objectStyle.cornerRadius = ${_cornerRadiusPt};
+                    `)}
                 }
                 if (${transparency} < 100) {
                     try { objectStyle.transparencySettings.blendingSettings.opacity = ${transparency}; } catch(e) {}

@@ -262,7 +262,7 @@ export const pageToolDefinitions = [
             type: 'object',
             properties: {
                 pageIndex: { type: 'number', description: 'Page index', default: 0 },
-                backgroundColor: { type: 'string', description: 'Background color name (must be a color swatch in the document)', default: 'White' },
+                backgroundColor: { type: 'string', description: 'Background color as RGB hex (e.g. #ffffff) or a color swatch name in the document', default: '#ffffff' },
                 opacity: { type: 'number', description: 'Background opacity percentage (0-100)', default: 100 },
             },
         },

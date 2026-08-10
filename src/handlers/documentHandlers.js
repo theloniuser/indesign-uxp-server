@@ -131,7 +131,10 @@ export class DocumentHandlers {
             [finalWidth, finalHeight] = [finalHeight, finalWidth];
         }
 
-        const pageCount = Math.max(1, Math.round(pages));
+        const MAX_PAGES = 9999; // InDesign's own per-document page cap
+        const pageCount = Number.isFinite(pages)
+            ? Math.min(MAX_PAGES, Math.max(1, Math.round(pages)))
+            : 1;
 
         // Convert mm to points (1mm = 2.8346pt) for InDesign UXP API
         const MM_TO_PT = 2.8346;
