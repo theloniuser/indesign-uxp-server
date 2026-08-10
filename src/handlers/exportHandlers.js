@@ -11,8 +11,21 @@ export class ExportHandlers {
     static async exportPDF(args) {
         const {
             filePath,
-            preset = 'High Quality Print',
+            pages = 'all',
+            quality = 'PRINT',
+            includeBleed = false,
+            includeMarks = false,
         } = args;
+
+        // Built-in InDesign preset names guaranteed present across versions.
+        const presetMap = {
+            PRESS: '[Press Quality]',
+            PRINT: '[High Quality Print]',
+            SCREEN: '[Smallest File Size]',
+            DIGITAL: '[High Quality Print]',
+        };
+        const preset = presetMap[quality] || presetMap.PRINT;
+        const pageRange = pages === 'all' ? 'All' : pages;
 
         const code = `
             const { ExportFormat } = require('indesign');
@@ -21,8 +34,14 @@ export class ExportHandlers {
             }
             const doc = app.activeDocument;
             try {
+                // L6: pageRange/bleed/marks live on app.pdfExportPreferences, not the
+                // exportFile() call itself — must be set before every export or InDesign
+                // silently reuses whatever range was last used (often just page 1).
+                app.pdfExportPreferences.pageRange = ${JSON.stringify(pageRange)};
+                app.pdfExportPreferences.useDocumentBleedWithPDF = ${JSON.stringify(includeBleed)};
+                app.pdfExportPreferences.cropMarks = ${JSON.stringify(includeMarks)};
                 await doc.exportFile(ExportFormat.pdfType, ${JSON.stringify(filePath)}, false, ${JSON.stringify(preset)});
-                return { success: true, message: 'PDF exported to ' + ${JSON.stringify(filePath)} };
+                return { success: true, message: 'PDF exported to ' + ${JSON.stringify(filePath)}, pages: ${JSON.stringify(pageRange)} };
             } catch(e) {
                 return { success: false, error: 'Export failed: ' + e.message };
             }
