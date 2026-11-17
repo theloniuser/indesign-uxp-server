@@ -5,11 +5,13 @@
  */
 
 const BASE = 'http://127.0.0.1:3000';
+const HEADERS = { 'Content-Type': 'application/json' };
+if (process.env.BRIDGE_TOKEN) HEADERS.Authorization = `Bearer ${process.env.BRIDGE_TOKEN}`;
 
 async function uxp(code) {
   const r = await fetch(`${BASE}/execute`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HEADERS,
     body: JSON.stringify({ code })
   });
   const data = await r.json();
@@ -20,7 +22,7 @@ async function uxp(code) {
 async function mcp(tool, args = {}) {
   const r = await fetch(`${BASE}/tools/${tool}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HEADERS,
     body: JSON.stringify(args)
   });
   const data = await r.json();
@@ -394,6 +396,7 @@ async function run() {
   console.log(`\n${'─'.repeat(40)}`);
   console.log(`Results: ${passed}/${total} passed, ${failed} failed`);
   if (failed === 0) console.log('All tests passed ✓');
+  process.exitCode = failed === 0 ? 0 : 1;
 }
 
-run();
+run().catch(e => { console.error(e); process.exitCode = 1; });

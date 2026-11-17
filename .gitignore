@@ -113,3 +113,6 @@ Desktop.ini
 
 # Ad-hoc screenshots
 hn-submit.png
+# Local test fixture (the suite edits it every run)
+tests/fixtures/*.indd
+tests/fixtures/*.idlk
