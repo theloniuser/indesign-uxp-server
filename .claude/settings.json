@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-tests.sh\"",
+            "timeout": 320
+          }
+        ]
+      }
+    ]
+  }
+}
