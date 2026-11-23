@@ -106,7 +106,8 @@ async function run() {
     if (app.documents.length === 0) return { success: false, error: 'No document open' };
     const doc = app.activeDocument;
     try {
-      doc.exportFile(ExportFormat.pdfType, '/Users/jamescantwell/Desktop/uxp-test-export.pdf', false, 'High Quality Print');
+      // InDesign 2027: scripted exportFile(pdfType) crashes the app; the background export does not.
+      doc.asynchronousExportFile(ExportFormat.pdfType, '/Users/jamescantwell/Desktop/uxp-test-export.pdf', false).waitForTask();
       return { success: true, path: '/Users/jamescantwell/Desktop/uxp-test-export.pdf' };
     } catch(e) {
       return { success: false, error: 'exportFile failed: ' + e.message };

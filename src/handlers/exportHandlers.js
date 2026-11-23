@@ -33,17 +33,47 @@ export class ExportHandlers {
                 return { success: false, error: 'No document open' };
             }
             const doc = app.activeDocument;
+            const prefs = app.pdfExportPreferences;
+            const presetObj = app.pdfExportPresets.itemByName(${JSON.stringify(preset)});
+            if (!presetObj.isValid) {
+                return { success: false, error: 'PDF preset not found: ' + ${JSON.stringify(preset)} };
+            }
+            // Copy the preset into the app prefs and export WITHOUT a preset argument:
+            // a preset passed to the export overrides pageRange/bleed/marks (bleed was
+            // silently dropped). The user's prefs are restored afterwards.
+            const skip = { name: 1, parent: 1, index: 1, id: 1, isValid: 1, properties: 1,
+                events: 1, eventListeners: 1 };
+            const saved = {
+                pageRange: prefs.pageRange,
+                useDocumentBleedWithPDF: prefs.useDocumentBleedWithPDF,
+                cropMarks: prefs.cropMarks,
+            };
+            const notCopied = [];
             try {
-                // L6: pageRange/bleed/marks live on app.pdfExportPreferences, not the
-                // exportFile() call itself — must be set before every export or InDesign
+                for (const k of Object.keys(presetObj.properties)) {
+                    if (skip[k]) continue;
+                    const had = k in saved;
+                    try { if (!had) saved[k] = prefs[k]; prefs[k] = presetObj[k]; }
+                    catch (e) { if (!had) delete saved[k]; notCopied.push(k); }
+                }
+                // L6: pageRange/bleed/marks must be set before every export or InDesign
                 // silently reuses whatever range was last used (often just page 1).
-                app.pdfExportPreferences.pageRange = ${JSON.stringify(pageRange)};
-                app.pdfExportPreferences.useDocumentBleedWithPDF = ${JSON.stringify(includeBleed)};
-                app.pdfExportPreferences.cropMarks = ${JSON.stringify(includeMarks)};
-                await doc.exportFile(ExportFormat.pdfType, ${JSON.stringify(filePath)}, false, ${JSON.stringify(preset)});
-                return { success: true, message: 'PDF exported to ' + ${JSON.stringify(filePath)}, pages: ${JSON.stringify(pageRange)} };
+                prefs.pageRange = ${JSON.stringify(pageRange)};
+                prefs.useDocumentBleedWithPDF = ${JSON.stringify(includeBleed)};
+                prefs.cropMarks = ${JSON.stringify(includeMarks)};
+                // InDesign 2027 (22.0) crashes (null deref after the PDF is written) on any
+                // scripted doc.exportFile(pdfType). The background export does not.
+                const task = doc.asynchronousExportFile(ExportFormat.pdfType, ${JSON.stringify(filePath)}, false);
+                const state = String(task.waitForTask(600)); // seconds
+                if (state !== 'COMPLETED') {
+                    return { success: false, error: 'Export did not complete (task state: ' + state + ')' };
+                }
+                return { success: true, message: 'PDF exported to ' + ${JSON.stringify(filePath)}, pages: ${JSON.stringify(pageRange)}, presetPropsNotCopied: notCopied };
             } catch(e) {
                 return { success: false, error: 'Export failed: ' + e.message };
+            } finally {
+                // Restore in reverse so dependent settings (PDF/X vs compatibility) unwind cleanly.
+                for (const k of Object.keys(saved).reverse()) { try { prefs[k] = saved[k]; } catch (e) {} }
             }
         `;
 
