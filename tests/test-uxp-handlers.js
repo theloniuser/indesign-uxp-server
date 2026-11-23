@@ -107,7 +107,8 @@ async function run() {
     const doc = app.activeDocument;
     try {
       // InDesign 2027: scripted exportFile(pdfType) crashes the app; the background export does not.
-      doc.asynchronousExportFile(ExportFormat.pdfType, '/Users/jamescantwell/Desktop/uxp-test-export.pdf', false).waitForTask();
+      const state = String(doc.asynchronousExportFile(ExportFormat.pdfType, '/Users/jamescantwell/Desktop/uxp-test-export.pdf', false).waitForTask());
+      if (state !== 'COMPLETED') return { success: false, error: 'task state ' + state };
       return { success: true, path: '/Users/jamescantwell/Desktop/uxp-test-export.pdf' };
     } catch(e) {
       return { success: false, error: 'exportFile failed: ' + e.message };

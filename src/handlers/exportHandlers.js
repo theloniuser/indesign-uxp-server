@@ -64,9 +64,17 @@ export class ExportHandlers {
                 // InDesign 2027 (22.0) crashes (null deref after the PDF is written) on any
                 // scripted doc.exportFile(pdfType). The background export does not.
                 const task = doc.asynchronousExportFile(ExportFormat.pdfType, ${JSON.stringify(filePath)}, false);
-                const state = String(task.waitForTask(600)); // seconds
+                // waitForTask() takes no timeout and blocks until the task ends. In 22.0 it
+                // returns 'COMPLETED' as a string; COMPLETED can include errors, but task.alerts
+                // is unreadable once the task ends (error 30465), so alerts are best-effort.
+                const state = String(task.waitForTask());
+                let alerts = [];
+                try { alerts = Array.from(task.alerts || []).map(String); } catch (e) {}
                 if (state !== 'COMPLETED') {
                     return { success: false, error: 'Export did not complete (task state: ' + state + ')' };
+                }
+                if (alerts.length) {
+                    return { success: false, error: 'Export finished with alerts: ' + alerts.join('; ') };
                 }
                 return { success: true, message: 'PDF exported to ' + ${JSON.stringify(filePath)}, pages: ${JSON.stringify(pageRange)}, presetPropsNotCopied: notCopied };
             } catch(e) {
