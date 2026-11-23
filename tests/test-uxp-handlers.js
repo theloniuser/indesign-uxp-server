@@ -50,6 +50,14 @@ async function run() {
     process.exit(1);
   }
 
+  // The suite edits the active document. Never run it on real work.
+  const docName = await uxp('return app.documents.length ? app.activeDocument.name : "";');
+  if (!String(docName).startsWith('uxp-test-fixture')) {
+    console.error(`Active document is '${docName || 'none'}', not a uxp-test-fixture document. ` +
+      'The suite edits the active document. Open or create uxp-test-fixture.indd first.');
+    process.exit(1);
+  }
+
   // 1. get_document_info — returns structured object
   await test('get_document_info', () => uxp(`
     if (app.documents.length === 0) return { error: 'No document open' };

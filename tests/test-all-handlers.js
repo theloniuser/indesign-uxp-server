@@ -66,6 +66,14 @@ async function run() {
     process.exit(1);
   }
 
+  // The suite edits the active document (adds pages, layers, swatches). Never run it on real work.
+  const docName = await uxp('return app.documents.length ? app.activeDocument.name : "";');
+  if (!String(docName).startsWith('uxp-test-fixture')) {
+    console.error(`Active document is '${docName || 'none'}', not a uxp-test-fixture document. ` +
+      'The suite edits the active document. Open or create uxp-test-fixture.indd first.');
+    process.exit(1);
+  }
+
   // ── Document Handlers ──
   section('Document Handlers');
 
@@ -358,7 +366,9 @@ async function run() {
   // ── Export Handlers ──
   section('Export Handlers');
 
-  await test('export_pdf', () => uxp(`
+  await test('export_pdf', async () => {
+    const started = Date.now();
+    const r = await uxp(`
     const { ExportFormat } = require('indesign');
     if (app.documents.length === 0) return { error: 'No document open' };
     const doc = app.activeDocument;
@@ -369,7 +379,13 @@ async function run() {
       if (state !== 'COMPLETED') return { success: false, error: 'task state ' + state };
       return { success: true, path };
     } catch(e) { return { success: false, error: e.message }; }
-  `));
+  `);
+    if (!r?.success) throw new Error(r?.error || 'export failed');
+    const { statSync } = await import('node:fs');
+    const st = statSync(r.path);
+    if (st.size === 0 || st.mtimeMs < started - 1000) throw new Error('no new PDF written');
+    return { ...r, bytes: st.size };
+  });
 
   // ── Utility Handlers ──
   section('Utility Handlers');

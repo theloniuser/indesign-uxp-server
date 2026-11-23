@@ -1,6 +1,7 @@
 /**
  * Export handlers
  */
+import { statSync } from 'node:fs';
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse, escapeJsxString } from '../utils/stringUtils.js';
 
@@ -85,10 +86,19 @@ export class ExportHandlers {
             }
         `;
 
+        const started = Date.now();
         const result = await ScriptExecutor.executeViaUXP(code);
-        return result?.success ?
-            formatResponse(result.message, "Export PDF") :
-            formatErrorResponse(result?.error || 'Failed to export PDF', "Export PDF");
+        if (!result?.success) {
+            return formatErrorResponse(result?.error || 'Failed to export PDF', "Export PDF");
+        }
+        // COMPLETED can hide a failed export and task.alerts is unreadable afterwards, so confirm
+        // the PDF was actually written by this call (1 s slack for filesystem mtime rounding).
+        let st;
+        try { st = statSync(filePath); } catch (e) { st = null; }
+        if (!st || st.size === 0 || st.mtimeMs < started - 1000) {
+            return formatErrorResponse(`InDesign reported success but no new PDF was written at ${filePath}`, "Export PDF");
+        }
+        return formatResponse(result.message, "Export PDF");
     }
 
     /**
