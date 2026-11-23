@@ -2,6 +2,7 @@
  * Export handlers
  */
 import { statSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse, escapeJsxString } from '../utils/stringUtils.js';
 
@@ -25,6 +26,10 @@ export class ExportHandlers {
             SCREEN: '[Smallest File Size]',
             DIGITAL: '[High Quality Print]',
         };
+        // Node (written-file check) and InDesign resolve relative paths differently.
+        if (!isAbsolute(String(filePath || ''))) {
+            return formatErrorResponse(`filePath must be absolute: ${filePath}`, "Export PDF");
+        }
         const preset = presetMap[quality] || presetMap.PRINT;
         const pageRange = pages === 'all' ? 'All' : pages;
 
