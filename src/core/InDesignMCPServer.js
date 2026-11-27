@@ -47,10 +47,14 @@ export class InDesignMCPServer {
             const { name, arguments: args } = request.params;
 
             try {
-                const result = await this.handleToolCall(name, args);
-                return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+                const result = await this.handleToolCall(name, args ?? {});
+                const response = { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+                // Handlers report failure as { success: false } (formatErrorResponse); flag it
+                // so MCP clients don't treat a failed call as a successful one.
+                if (result && result.success === false) response.isError = true;
+                return response;
             } catch (error) {
-                return { content: [{ type: 'text', text: `Error: ${error.message}` }] };
+                return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
             }
         });
     }
