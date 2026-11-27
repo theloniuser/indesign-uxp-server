@@ -11,12 +11,19 @@
  * - ExportFormat enum: require('indesign').ExportFormat.pdfType (not PDF_TYPE)
  */
 
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 const BASE = 'http://127.0.0.1:3000';
+// Cross-platform output path (was a hardcoded macOS Desktop path).
+const HEADERS = { 'Content-Type': 'application/json' };
+if (process.env.BRIDGE_TOKEN) HEADERS.Authorization = `Bearer ${process.env.BRIDGE_TOKEN}`;
+const EXPORT_PDF = JSON.stringify(join(tmpdir(), 'uxp-test-export.pdf'));
 
 async function uxp(code) {
   const r = await fetch(`${BASE}/execute`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HEADERS,
     body: JSON.stringify({ code })
   });
   const data = await r.json();
@@ -92,7 +99,7 @@ async function run() {
   `));
 
   // 3. place_image — path string works directly (no UXP storage API needed)
-  // Uses the uxp-test-export.pdf already on Desktop from prior test run
+  // Uses the uxp-test-export.pdf left in the temp folder by a prior test run
   await test('place_image (path string)', () => uxp(`
     if (app.documents.length === 0) return { success: false, error: 'No document open' };
     const doc = app.activeDocument;
@@ -100,7 +107,7 @@ async function run() {
     const rect = page.rectangles.add();
     rect.geometricBounds = [60, 20, 120, 100];
     try {
-      rect.place('/Users/jamescantwell/Desktop/uxp-test-export.pdf');
+      rect.place(${EXPORT_PDF});
       return { success: true, message: 'File placed via path string' };
     } catch(e) {
       rect.remove();
@@ -115,9 +122,9 @@ async function run() {
     const doc = app.activeDocument;
     try {
       // InDesign 2027: scripted exportFile(pdfType) crashes the app; the background export does not.
-      const state = String(doc.asynchronousExportFile(ExportFormat.pdfType, '/Users/jamescantwell/Desktop/uxp-test-export.pdf', false).waitForTask());
+      const state = String(doc.asynchronousExportFile(ExportFormat.pdfType, ${EXPORT_PDF}, false).waitForTask());
       if (state !== 'COMPLETED') return { success: false, error: 'task state ' + state };
-      return { success: true, path: '/Users/jamescantwell/Desktop/uxp-test-export.pdf' };
+      return { success: true, path: ${EXPORT_PDF} };
     } catch(e) {
       return { success: false, error: 'exportFile failed: ' + e.message };
     }
