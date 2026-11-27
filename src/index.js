@@ -20,9 +20,17 @@ function isBridgeRunning() {
 
 function startBridge() {
     const bridgePath = join(__dirname, '../bridge/server.js');
-    const child = spawn('node', [bridgePath], {
+    // Use the Node that runs this server, not whatever "node" is on PATH: MCP clients
+    // such as Claude Desktop can run the server with their own bundled Node on machines
+    // with no Node installed, where spawn('node') fails with ENOENT.
+    const child = spawn(process.execPath, [bridgePath], {
         detached: true,
         stdio: 'ignore',
+        windowsHide: true,
+    });
+    // Without a listener a spawn error is an unhandled 'error' event and kills the server.
+    child.on('error', (err) => {
+        console.error('[MCP] Could not start the bridge: ' + err.message);
     });
     child.unref();
     console.error('[MCP] Bridge server started (pid ' + child.pid + ')');
