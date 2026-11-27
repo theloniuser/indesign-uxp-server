@@ -46,11 +46,33 @@ async function handleExecute(ws, msg) {
   }
 }
 
+function setStatus(text) {
+  if (statusEl) statusEl.textContent = text;
+}
+
+// One live socket at a time. show() used to open a new socket every time the panel
+// was shown, so reopening the panel left several sockets answering the bridge.
+let activeSocket = null;
+let retryTimer = null;
+
 function connectToBridge() {
-  const ws = new WebSocket("ws://127.0.0.1:3001");
+  if (activeSocket || retryTimer) return;
+  let ws;
+  try {
+    ws = new WebSocket("ws://127.0.0.1:3001");
+  } catch (e) {
+    console.error("[Plugin] WebSocket could not be created:", e);
+    setStatus("Bridge connection error — retrying in 3s");
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      connectToBridge();
+    }, 3000);
+    return;
+  }
+  activeSocket = ws;
 
   ws.onopen = () => {
-    statusEl.textContent = "Connected to bridge ✓";
+    setStatus("Connected to bridge ✓");
     console.log("[Plugin] Connected to bridge");
   };
 
@@ -73,13 +95,19 @@ function connectToBridge() {
   };
 
   ws.onerror = (err) => {
-    statusEl.textContent = "Bridge connection error";
+    setStatus("Bridge connection error");
     console.error("[Plugin] WebSocket error:", err);
   };
 
   ws.onclose = () => {
-    statusEl.textContent = "Disconnected — retrying in 3s";
-    setTimeout(connectToBridge, 3000);
+    if (activeSocket === ws) activeSocket = null;
+    setStatus("Disconnected — retrying in 3s");
+    if (!retryTimer) {
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        connectToBridge();
+      }, 3000);
+    }
   };
 }
 
@@ -101,8 +129,13 @@ entrypoints.setup({
           console.error("[Plugin] new Function() failed:", e);
         }
 
+        // No-op when already connected; reconnects if the bridge was down.
         connectToBridge();
       }
     }
   }
 });
+
+// Connect as soon as the plugin loads, so an installed plugin works after an InDesign
+// restart without the user opening the Bridge panel first.
+connectToBridge();

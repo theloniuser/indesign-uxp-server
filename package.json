@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "dev": "node --inspect src/index.js",
     "build": "echo 'No build step required for Node.js'",
-    "test": "node tests/test-all-handlers.js"
+    "test": "node tests/test-all-handlers.js",
+    "test:static": "node tests/test-tool-registry.js"
   },
   "keywords": [
     "mcp",

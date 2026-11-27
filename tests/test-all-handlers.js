@@ -368,12 +368,15 @@ async function run() {
 
   await test('export_pdf', async () => {
     const started = Date.now();
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const outPath = join(tmpdir(), 'uxp-all-handlers-test.pdf');
     const r = await uxp(`
     const { ExportFormat } = require('indesign');
     if (app.documents.length === 0) return { error: 'No document open' };
     const doc = app.activeDocument;
     try {
-      const path = '/Users/jamescantwell/Desktop/uxp-all-handlers-test.pdf';
+      const path = ${JSON.stringify(outPath)};
       // InDesign 2027: scripted exportFile(pdfType) crashes the app; the background export does not.
       const state = String(doc.asynchronousExportFile(ExportFormat.pdfType, path, false).waitForTask());
       if (state !== 'COMPLETED') return { success: false, error: 'task state ' + state };

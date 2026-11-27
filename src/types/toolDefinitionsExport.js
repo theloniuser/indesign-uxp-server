@@ -22,30 +22,17 @@ export const exportToolDefinitions = [
     },
     {
         name: 'export_images',
-        description: 'Export pages as images',
+        description: 'Export pages as images, one file per page (page_<position>.jpg/.png)',
         inputSchema: {
             type: 'object',
             properties: {
-                outputPath: { type: 'string', description: 'Output directory path' },
-                format: { type: 'string', enum: ['JPEG', 'PNG', 'TIFF'], default: 'JPEG' },
+                outputPath: { type: 'string', description: 'Absolute path of an existing output folder' },
+                format: { type: 'string', enum: ['JPEG', 'PNG'], default: 'JPEG' },
                 resolution: { type: 'number', description: 'Resolution in DPI', default: 300 },
-                pages: { type: 'string', description: 'Page range (e.g., "1-5", "all")', default: 'all' },
-                quality: { type: 'number', description: 'Quality (1-100 for JPEG)', default: 80 },
+                pages: { type: 'string', description: '1-based page positions in the document, e.g. "1,3,5-7" or "all" (not section page numbers)', default: 'all' },
+                quality: { type: 'number', description: 'Quality 1-100, mapped to InDesign low/medium/high/maximum', default: 80 },
             },
             required: ['outputPath'],
-        },
-    },
-    {
-        name: 'export_epub',
-        description: 'Export document to EPUB',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                filePath: { type: 'string', description: 'Output EPUB file path' },
-                includeImages: { type: 'boolean', description: 'Include images', default: true },
-                includeStyles: { type: 'boolean', description: 'Include styles', default: true },
-            },
-            required: ['filePath'],
         },
     },
     {

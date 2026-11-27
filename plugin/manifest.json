@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.ads.indesign-bridge",
   "name": "InDesign Bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.html",
   "host": {
     "app": "ID",

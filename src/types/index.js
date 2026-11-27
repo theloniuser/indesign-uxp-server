@@ -11,8 +11,6 @@ import { bookToolDefinitions } from './toolDefinitionsBook.js';
 import { utilityToolDefinitions } from './toolDefinitionsUtility.js';
 import { pageItemGroupToolDefinitions } from './toolDefinitionsPageItemGroup.js';
 import { masterSpreadToolDefinitions } from './toolDefinitionsMasterSpread.js';
-import { spreadToolDefinitions } from './toolDefinitionsSpread.js';
-import { layerToolDefinitions } from './toolDefinitionsLayer.js';
 
 // Combine all tool definitions into a single array
 export const allToolDefinitions = [
@@ -24,8 +22,6 @@ export const allToolDefinitions = [
     ...utilityToolDefinitions,
     ...pageItemGroupToolDefinitions,
     ...masterSpreadToolDefinitions,
-    ...spreadToolDefinitions,
-    ...layerToolDefinitions,
 ];
 
 // Export individual modules for specific use cases
@@ -36,6 +32,4 @@ export { exportToolDefinitions } from './toolDefinitionsExport.js';
 export { bookToolDefinitions } from './toolDefinitionsBook.js';
 export { utilityToolDefinitions } from './toolDefinitionsUtility.js';
 export { pageItemGroupToolDefinitions } from './toolDefinitionsPageItemGroup.js';
-export { masterSpreadToolDefinitions } from './toolDefinitionsMasterSpread.js';
-export { spreadToolDefinitions } from './toolDefinitionsSpread.js';
-export { layerToolDefinitions } from './toolDefinitionsLayer.js'; 
+export { masterSpreadToolDefinitions } from './toolDefinitionsMasterSpread.js'; 
