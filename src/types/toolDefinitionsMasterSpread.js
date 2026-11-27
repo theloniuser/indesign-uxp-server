@@ -31,9 +31,9 @@ export const masterSpreadToolDefinitions = [
         inputSchema: {
             type: 'object',
             properties: {
-                name: { type: 'string', description: 'Master spread name to delete' },
+                masterIndex: { type: 'number', description: 'Master spread index (0-based, as returned by list_master_spreads)' },
             },
-            required: ['name'],
+            required: ['masterIndex'],
         },
     },
     {
@@ -42,11 +42,11 @@ export const masterSpreadToolDefinitions = [
         inputSchema: {
             type: 'object',
             properties: {
-                name: { type: 'string', description: 'Master spread name to duplicate' },
-                newName: { type: 'string', description: 'Name for the duplicated master spread' },
+                masterIndex: { type: 'number', description: 'Master spread index to duplicate (0-based)' },
                 position: { type: 'string', enum: ['AT_END', 'AT_BEGINNING', 'BEFORE', 'AFTER'], default: 'AT_END' },
+                referenceMaster: { type: 'number', description: 'Reference master spread index (for BEFORE/AFTER)' },
             },
-            required: ['name', 'newName'],
+            required: ['masterIndex'],
         },
     },
     {
@@ -126,33 +126,9 @@ export const masterSpreadToolDefinitions = [
         inputSchema: {
             type: 'object',
             properties: {
-                name: { type: 'string', description: 'Master spread name' },
+                masterIndex: { type: 'number', description: 'Master spread index (0-based)' },
             },
-            required: ['name'],
-        },
-    },
-    {
-        name: 'detach_master_items',
-        description: 'Detach master page items from a page',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                pageIndex: { type: 'number', description: 'Page index' },
-                itemIndex: { type: 'number', description: 'Master item index to detach (optional, detaches all if not specified)' },
-            },
-            required: ['pageIndex'],
-        },
-    },
-    {
-        name: 'remove_master_override',
-        description: 'Remove override from a master page item',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                pageIndex: { type: 'number', description: 'Page index' },
-                itemIndex: { type: 'number', description: 'Master item index to remove override from' },
-            },
-            required: ['pageIndex', 'itemIndex'],
+            required: ['masterIndex'],
         },
     },
 ]; 

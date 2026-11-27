@@ -2,7 +2,7 @@
 
 > **Forked from** [zachshallbetter/indesign-mcp-server](https://github.com/zachshallbetter/indesign-mcp-server) — rewritten to use Adobe's UXP plugin platform instead of AppleScript.
 
-A Model Context Protocol (MCP) server that gives AI assistants direct, native control over Adobe InDesign via a UXP plugin bridge. ~130 tools covering the full InDesign feature set — documents, pages, text, graphics, styles, master spreads, books, and export.
+A Model Context Protocol (MCP) server that gives AI assistants direct, native control over Adobe InDesign via a UXP plugin bridge. ~120 tools covering the full InDesign feature set — documents, pages, text, graphics, styles, master spreads, books, and export.
 
 ---
 
@@ -63,7 +63,7 @@ The UXP plugin maintains a persistent WebSocket connection to the bridge. When a
 
 ### 1. Install the UXP Plugin
 
-Load the plugin via the UXP Developer Tool or InDesign's plugin manager:
+Either load the `plugin/` folder in the UXP Developer Tool (development), or install it as a package: in the UXP Developer Tool choose **⋯ → Package**, then double-click the generated `.ccx` (Creative Cloud Desktop installs it). An installed plugin connects to the bridge on its own when InDesign starts. With only InDesign (Beta) installed, Creative Cloud Desktop refuses the package ("Compatible app required"); use the UXP Developer Tool there. To update an installed plugin, raise `version` in `manifest.json`, package again and reinstall.
 
 ```
 plugin/
@@ -120,6 +120,9 @@ node tests/test-uxp-handlers.js
 
 # Full suite (27 tests across all handler categories)
 node tests/test-all-handlers.js
+
+# Static check, no InDesign needed: advertised tools match the server's dispatch
+npm run test:static
 ```
 
 Current status: **27/27 passing** across all handler categories.
@@ -131,20 +134,20 @@ Current status: **27/27 passing** across all handler categories.
 ### Documents
 `create_document` `open_document` `save_document` `close_document` `get_document_info` `get_document_preferences` `set_document_preferences` `get_document_elements` `get_document_styles` `get_document_colors` `get_document_layers` `get_document_stories` `get_document_hyperlinks` `create_document_hyperlink` `get_document_sections` `create_document_section` `get_document_grid_settings` `set_document_grid_settings` `get_document_layout_preferences` `set_document_layout_preferences` `get_document_xml_structure` `export_document_xml` `preflight_document` `validate_document` `cleanup_document` `data_merge` `save_document_to_cloud` `open_cloud_document` `view_document`
 
-### Pages & Spreads
-`add_page` `delete_page` `duplicate_page` `move_page` `get_page_info` `set_page_properties` `adjust_page_layout` `resize_page` `reframe_page` `navigate_to_page` `select_page` `zoom_to_page` `set_page_background` `create_page_guides` `place_file_on_page` `place_xml_on_page` `get_page_content_summary` `snapshot_page_layout` `delete_page_layout_snapshot` `delete_all_page_layout_snapshots` `list_spreads` `get_spread_info` `duplicate_spread` `move_spread` `delete_spread` `set_spread_properties` `create_spread_guides` `place_file_on_spread` `place_xml_on_spread` `select_spread` `get_spread_content_summary`
+### Pages
+`add_page` `delete_page` `duplicate_page` `move_page` `get_page_info` `set_page_properties` `adjust_page_layout` `resize_page` `reframe_page` `navigate_to_page` `select_page` `zoom_to_page` `set_page_background` `create_page_guides` `place_file_on_page` `place_xml_on_page` `get_page_content_summary` `snapshot_page_layout` `delete_page_layout_snapshot` `delete_all_page_layout_snapshots`
 
 ### Text & Tables
 `create_text_frame` `edit_text_frame` `create_table` `populate_table` `find_replace_text` `find_text_in_document`
 
 ### Styles & Colors
-`create_paragraph_style` `apply_paragraph_style` `create_character_style` `list_styles` `create_color_swatch` `list_color_swatches` `apply_color` `create_object_style` `list_object_styles` `apply_object_style`
+`create_paragraph_style` `apply_paragraph_style` `create_character_style` `apply_character_style` `list_styles` `create_color_swatch` `list_color_swatches` `apply_color` `create_object_style` `list_object_styles` `apply_object_style`
 
 ### Graphics & Shapes
 `place_image` `get_image_info` `create_rectangle` `create_ellipse` `create_polygon`
 
 ### Layers
-`create_layer` `set_active_layer` `list_layers` `organize_document_layers`
+`get_document_layers` `organize_document_layers`
 
 ### Page Items
 `get_page_item_info` `select_page_item` `move_page_item` `resize_page_item` `set_page_item_properties` `duplicate_page_item` `delete_page_item` `list_page_items`
@@ -153,10 +156,10 @@ Current status: **27/27 passing** across all handler categories.
 `create_group` `create_group_from_items` `ungroup` `get_group_info` `add_item_to_group` `remove_item_from_group` `list_groups` `set_group_properties`
 
 ### Master Spreads
-`create_master_spread` `list_master_spreads` `delete_master_spread` `duplicate_master_spread` `apply_master_spread` `get_master_spread_info` `create_master_text_frame` `create_master_rectangle` `create_master_guides` `detach_master_items` `remove_master_override`
+`create_master_spread` `list_master_spreads` `delete_master_spread` `duplicate_master_spread` `apply_master_spread` `get_master_spread_info` `create_master_text_frame` `create_master_rectangle` `create_master_guides`
 
 ### Export & Output
-`export_pdf` `export_images` `export_epub` `package_document`
+`export_pdf` `export_images` `package_document`
 
 ### Books
 `create_book` `open_book` `list_books` `add_document_to_book` `synchronize_book` `repaginate_book` `export_book` `package_book` `preflight_book` `print_book` `get_book_info` `set_book_properties` `update_all_cross_references` `update_all_numbers` `update_chapter_and_paragraph_numbers`

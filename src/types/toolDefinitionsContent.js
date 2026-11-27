@@ -291,6 +291,20 @@ export const contentToolDefinitions = [
         },
     },
     {
+        name: 'apply_character_style',
+        description: 'Apply a character style to a character range of a text frame on the first page',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                styleName: { type: 'string', description: 'Character style name' },
+                frameIndex: { type: 'number', description: 'Text frame index (0-based) on the first page', default: 0 },
+                startIndex: { type: 'number', description: 'First character index (0-based)', default: 0 },
+                endIndex: { type: 'number', description: 'Last character index, inclusive; -1 styles the whole text (startIndex ignored)', default: -1 },
+            },
+            required: ['styleName'],
+        },
+    },
+    {
         name: 'list_styles',
         description: 'List all paragraph and character styles',
         inputSchema: {
@@ -324,15 +338,15 @@ export const contentToolDefinitions = [
     },
     {
         name: 'apply_color',
-        description: 'Apply color to an object',
+        description: 'Apply a color swatch as fill to an object on the first page',
         inputSchema: {
             type: 'object',
             properties: {
-                objectIndex: { type: 'number', description: 'Object index' },
                 colorName: { type: 'string', description: 'Color swatch name' },
-                colorType: { type: 'string', enum: ['FILL', 'STROKE'], default: 'FILL' },
+                targetType: { type: 'string', enum: ['text', 'rectangle', 'ellipse'], default: 'text', description: 'text colors the text of a text frame' },
+                frameIndex: { type: 'number', description: 'Index (0-based) of the target among that object type on the first page', default: 0 },
             },
-            required: ['objectIndex', 'colorName'],
+            required: ['colorName'],
         },
     },
 ]; 
