@@ -61,6 +61,7 @@ function drainQueue() {
   }, TIMEOUT_MS);
 
   pending.set(id, {
+    socket,
     resolve: (result) => {
       processingQueue = false;
       resolve(result);
@@ -99,7 +100,14 @@ const wss = new WebSocketServer({ port: WS_PORT, host: '127.0.0.1' });
 
 wss.on('connection', (ws) => {
   console.log('[Bridge] Plugin connected');
+  // The newest connection wins. An older socket (panel reopened, InDesign restarted
+  // before the old socket timed out) is closed so only one plugin answers.
+  const previous = pluginSocket;
   pluginSocket = ws;
+  if (previous && previous !== ws) {
+    console.log('[Bridge] Replacing previous plugin connection');
+    try { previous.close(); } catch (e) { /* already closing */ }
+  }
 
   ws.on('message', (data) => {
     let msg;
@@ -113,7 +121,7 @@ wss.on('connection', (ws) => {
     console.log('[Bridge] From plugin:', JSON.stringify(msg).slice(0, 200));
 
     const item = pending.get(msg.id);
-    if (!item) return;
+    if (!item || item.socket !== ws) return;
 
     clearTimeout(item.timer);
     pending.delete(msg.id);
@@ -128,19 +136,23 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('[Bridge] Plugin disconnected');
-    pluginSocket = null;
-    // Reject any in-flight pending entry
+    const wasCurrent = pluginSocket === ws;
+    console.log(wasCurrent ? '[Bridge] Plugin disconnected' : '[Bridge] Previous plugin connection closed');
+    // A replaced socket closing must not drop the live connection that replaced it.
+    if (wasCurrent) pluginSocket = null;
+    // Reject only what was sent on this socket; its answer can no longer arrive.
     for (const [id, item] of pending.entries()) {
+      if (item.socket !== ws) continue;
       clearTimeout(item.timer);
-      item.reject(new Error('Plugin disconnected'));
       pending.delete(id);
+      item.reject(new Error('Plugin disconnected'));
     }
-    // processingQueue will be unblocked via the reject→drainQueue chain above;
-    // if for some reason it isn't, reset it so reconnect can proceed
-    processingQueue = false;
-    // Drain any items waiting in queue with a connection error
-    drainQueue();
+    // reject() above already released the queue and drained it. With nothing in
+    // flight, drain here so queued requests either run on the new socket or fail fast.
+    if (pending.size === 0) {
+      processingQueue = false;
+      drainQueue();
+    }
   });
 
   ws.on('error', (err) => {
@@ -157,7 +169,7 @@ app.get('/status', (req, res) => {
 app.post('/execute', async (req, res) => {
   if (!pluginSocket) {
     return res.status(503).json({
-      error: 'Plugin not connected. Open InDesign, then load the Bridge Panel via UXP Developer Tool.'
+      error: 'Plugin not connected. Open InDesign with the InDesign Bridge plugin installed (or loaded via UXP Developer Tool); open Plugins > Bridge Panel if it does not connect within a few seconds.'
     });
   }
 

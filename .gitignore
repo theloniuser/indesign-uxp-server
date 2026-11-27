@@ -116,3 +116,6 @@ hn-submit.png
 # Local test fixture (the suite edits it every run)
 tests/fixtures/*.indd
 tests/fixtures/*.idlk
+
+# Packaged UXP plugin (build output)
+*.ccx
