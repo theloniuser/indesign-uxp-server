@@ -2,7 +2,7 @@
  * Export handlers
  */
 import { statSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, sep } from 'node:path';
 import { ScriptExecutor } from '../core/scriptExecutor.js';
 import { formatResponse, formatErrorResponse, escapeJsxString } from '../utils/stringUtils.js';
 
@@ -110,92 +110,135 @@ export class ExportHandlers {
      * Export pages as images
      */
     static async exportImages(args) {
+        // The schema has always advertised outputPath/pages; the handler used to read
+        // folderPath/pageRange, so every MCP call exported to "undefined". Accept both.
         const {
+            outputPath,
             folderPath,
             format = 'JPEG',
             quality = 80,
             resolution = 300,
-            pageRange = 'all'
+            pages,
+            pageRange,
         } = args;
+        const folder = outputPath ?? folderPath;
+        const folderNoSep = String(folder ?? '').replace(/[\\/]+$/, '');
+        const range = String(pages ?? pageRange ?? 'all').trim();
+        const fmt = String(format).toUpperCase();
 
-        const formatLower = format.toLowerCase();
-
-        // M4: validate pageRange entries before sending to UXP — invalid entries were
-        // silently skipped, returning a count lower than expected with no error reported
-        if (pageRange !== 'all') {
-            const entries = pageRange.split(',');
-            const invalid = entries.filter(p => {
-                const n = parseInt(p.trim(), 10);
-                return isNaN(n) || n < 1;
-            });
-            if (invalid.length > 0) {
-                return formatErrorResponse(
-                    `Invalid page range entries (must be positive integers): ${invalid.join(', ')}`,
-                    "Export Images"
-                );
+        if (!folder || !isAbsolute(String(folder))) {
+            return formatErrorResponse(`outputPath must be an absolute folder path: ${folder}`, "Export Images");
+        }
+        if (!['JPEG', 'JPG', 'PNG'].includes(fmt)) {
+            return formatErrorResponse(`Unsupported format: ${format}. InDesign exports pages as JPEG or PNG.`, "Export Images");
+        }
+        let positions = null; // 1-based page positions; null = all pages
+        if (range.toLowerCase() !== 'all') {
+            positions = [];
+            for (const part of range.split(',').map(s => s.trim()).filter(Boolean)) {
+                const m = part.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+                const a = m && parseInt(m[1], 10);
+                const b = m && (m[2] ? parseInt(m[2], 10) : a);
+                if (!m || a < 1 || b < a) {
+                    return formatErrorResponse(
+                        `Invalid page range "${part}": use 1-based positions like "1,3,5-7" or "all"`,
+                        "Export Images"
+                    );
+                }
+                for (let n = a; n <= b; n++) if (!positions.includes(n)) positions.push(n);
+            }
+            if (positions.length === 0) {
+                return formatErrorResponse('Page range is empty', "Export Images");
             }
         }
+        const isPng = fmt === 'PNG';
+        const ext = isPng ? 'png' : 'jpg';
+        // 1-100 quality mapped onto InDesign's four quality steps.
+        const q = Number(quality);
+        const qualityStep = q <= 25 ? 'LOW' : q <= 50 ? 'MEDIUM' : q <= 80 ? 'HIGH' : 'MAXIMUM';
 
         const code = `
-            const { ExportFormat } = require('indesign');
+            const ID = require('indesign');
             if (app.documents.length === 0) {
                 return { success: false, error: 'No document open' };
             }
             const doc = app.activeDocument;
-            const folder = ${JSON.stringify(folderPath)};
-
+            const isPng = ${JSON.stringify(isPng)};
+            // Page.exportFile does not exist in UXP: export the document with a one-page range.
+            const exportFormat = isPng
+                ? (ID.ExportFormat.PNG_FORMAT ?? ID.ExportFormat.pngType)
+                : (ID.ExportFormat.JPG ?? ID.ExportFormat.jpegType);
+            const prefs = isPng ? app.pngExportPreferences : app.jpegExportPreferences;
+            const rangeKey = isPng ? 'pngExportRange' : 'jpegExportRange';
+            const qualityKey = isPng ? 'pngQuality' : 'jpegQuality';
+            const qualityEnum = isPng ? ID.PNGQualityEnum : ID.JPEGOptionsQuality;
+            const total = doc.pages.length;
+            const wanted = ${JSON.stringify(positions)} || Array.from({ length: total }, (_, i) => i + 1);
+            const outOfRange = wanted.filter(n => n > total);
+            if (outOfRange.length) {
+                return { success: false, error: 'Pages out of range (document has ' + total + ' pages): ' + outOfRange.join(', ') };
+            }
+            const saved = {};
+            for (const k of [rangeKey, 'pageString', 'exportResolution', qualityKey]) {
+                try { saved[k] = prefs[k]; } catch (e) {}
+            }
+            const files = [];
             try {
-                const formatStr = ${JSON.stringify(format)};
-                let exportFormat;
-                if (formatStr === 'JPEG') {
-                    exportFormat = ExportFormat.jpegType;
-                } else if (formatStr === 'PNG') {
-                    exportFormat = ExportFormat.pngType;
-                } else if (formatStr === 'TIFF') {
-                    exportFormat = ExportFormat.tiffType;
-                } else {
-                    exportFormat = ExportFormat.jpegType;
+                prefs[rangeKey] = ID.ExportRangeOrAllPages.EXPORT_RANGE;
+                prefs.exportResolution = ${JSON.stringify(Number(resolution))};
+                try { prefs[qualityKey] = qualityEnum[${JSON.stringify(qualityStep)}]; } catch (e) {}
+                for (const n of wanted) {
+                    const page = doc.pages.item(n - 1);
+                    // "+n" addresses the absolute position, independent of section numbering.
+                    prefs.pageString = '+' + n;
+                    const file = ${JSON.stringify(folderNoSep)} + ${JSON.stringify(sep)} + 'page_' + n + '.' + ${JSON.stringify(ext)};
+                    await doc.exportFile(exportFormat, file, false);
+                    files.push({ position: n, name: page.name, file });
                 }
-
-                const ext = ${JSON.stringify(formatLower)};
-                const pageRangeStr = ${JSON.stringify(pageRange)};
-                let exportedCount = 0;
-
-                if (pageRangeStr !== 'all') {
-                    const pages = pageRangeStr.split(',');
-                    for (let i = 0; i < pages.length; i++) {
-                        const pageNum = parseInt(pages[i]) - 1;
-                        if (pageNum >= 0 && pageNum < doc.pages.length) {
-                            const fileName = folder + '/page_' + (pageNum + 1) + '.' + ext;
-                            await doc.pages.item(pageNum).exportFile(exportFormat, fileName, false);
-                            exportedCount++;
-                        }
-                    }
-                } else {
-                    for (let i = 0; i < doc.pages.length; i++) {
-                        const fileName = folder + '/page_' + (i + 1) + '.' + ext;
-                        await doc.pages.item(i).exportFile(exportFormat, fileName, false);
-                        exportedCount++;
-                    }
-                }
-
-                return { success: true, count: exportedCount };
-            } catch(e) {
-                return { success: false, error: 'Error exporting images: ' + e.message };
+                return { success: true, files };
+            } catch (e) {
+                return { success: false, error: 'Error exporting images: ' + e.message, exported: files };
+            } finally {
+                for (const k of Object.keys(saved)) { try { prefs[k] = saved[k]; } catch (e) {} }
             }
         `;
 
+        const started = Date.now();
         const result = await ScriptExecutor.executeViaUXP(code);
-        return result?.success ?
-            formatResponse(`${result.count} pages exported as ${format} images to: ${folderPath}`, "Export Images") :
-            formatErrorResponse(result?.error || 'Failed to export images', "Export Images");
+        if (!result?.success) {
+            return formatErrorResponse(result?.error || 'Failed to export images', "Export Images");
+        }
+        // Confirm each file was written by this call, as export_pdf does.
+        const missing = result.files.filter(f => {
+            try {
+                const st = statSync(f.file);
+                return st.size === 0 || st.mtimeMs < started - 1000;
+            } catch (e) {
+                return true;
+            }
+        });
+        if (missing.length) {
+            return formatErrorResponse(
+                `InDesign reported success but these images were not written: ${missing.map(f => f.file).join(', ')}`,
+                "Export Images"
+            );
+        }
+        return formatResponse({
+            message: `${result.files.length} page(s) exported as ${isPng ? 'PNG' : 'JPEG'} to ${folder}`,
+            files: result.files,
+        }, "Export Images");
     }
 
     /**
      * Package document for printing
      */
     static async packageDocument(args) {
-        const { folderPath, includeFonts = true, includeLinks = true, includeProfiles = true } = args;
+        // The schema name is outputPath; folderPath is still accepted for older callers.
+        const { outputPath, includeFonts = true, includeLinks = true, includeProfiles = true } = args;
+        const folderPath = outputPath ?? args.folderPath;
+        if (!folderPath || !isAbsolute(String(folderPath))) {
+            return formatErrorResponse(`outputPath must be an absolute folder path: ${folderPath}`, "Package Document");
+        }
 
         const code = `
             if (app.documents.length === 0) {
@@ -204,14 +247,17 @@ export class ExportHandlers {
             const doc = app.activeDocument;
 
             try {
-                doc.packageForPrint(
+                // to, copyingFonts, copyingLinkedGraphics, copyingProfiles, updatingGraphics,
+                // includingHiddenLayers, ignorePreflightErrors, creatingReport (required in UXP)
+                await doc.packageForPrint(
                     ${JSON.stringify(folderPath)},
-                    ${includeFonts},
-                    ${includeLinks},
-                    ${includeProfiles},
+                    ${!!includeFonts},
+                    ${!!includeLinks},
+                    ${!!includeProfiles},
                     false,
                     false,
-                    true
+                    true,
+                    false
                 );
                 return { success: true };
             } catch(e) {
