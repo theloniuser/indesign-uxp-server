@@ -106,17 +106,46 @@ export class PageHandlers {
     }
 
     /**
+     * Build the UXP snippet that resolves position/referencePageIndex to
+     * (LocationOptions, reference page). Sets `loc` and `ref`, or returns an error.
+     */
+    static locationSnippet(position, referencePageIndex) {
+        return `
+            const { LocationOptions } = require('indesign');
+            const pos = ${JSON.stringify(String(position || 'AT_END').toUpperCase())};
+            const locMap = {
+                AT_END: LocationOptions.AT_END ?? LocationOptions.atEnd,
+                AT_BEGINNING: LocationOptions.AT_BEGINNING ?? LocationOptions.atBeginning,
+                BEFORE: LocationOptions.BEFORE ?? LocationOptions.before,
+                AFTER: LocationOptions.AFTER ?? LocationOptions.after,
+            };
+            if (!(pos in locMap)) return { success: false, error: 'Invalid position: ' + pos + ' (use AT_END, AT_BEGINNING, BEFORE or AFTER)' };
+            const loc = locMap[pos];
+            let ref;
+            if (pos === 'BEFORE' || pos === 'AFTER') {
+                const refIndex = ${JSON.stringify(referencePageIndex ?? null)};
+                if (refIndex === null || refIndex < 0 || refIndex >= doc.pages.length) {
+                    return { success: false, error: 'referencePageIndex (0-based, in range) is required for ' + pos };
+                }
+                ref = doc.pages.item(refIndex);
+            }
+        `;
+    }
+
+    /**
      * Duplicate a specific page
      */
     static async duplicatePage(args) {
-        const { pageIndex } = args;
+        const { pageIndex, position = 'AT_END', referencePageIndex } = args;
 
         const code = `
             if (app.documents.length === 0) return { success: false, error: 'No document open' };
             const doc = app.activeDocument;
-            if (${pageIndex} < 0 || ${pageIndex} >= doc.pages.length) return { success: false, error: 'Page index out of range' };
+            if (${JSON.stringify(pageIndex ?? null)} === null || ${pageIndex} < 0 || ${pageIndex} >= doc.pages.length) return { success: false, error: 'Page index out of range' };
+            ${PageHandlers.locationSnippet(position, referencePageIndex)}
             const originalPage = doc.pages.item(${pageIndex});
-            const newPage = originalPage.duplicate();
+            // position used to be ignored: every duplicate landed right after the original.
+            const newPage = ref ? originalPage.duplicate(loc, ref) : originalPage.duplicate(loc);
             return { success: true, newPageIndex: newPage.documentOffset, totalPages: doc.pages.length };
         `;
 
@@ -130,22 +159,20 @@ export class PageHandlers {
      * Move a page to a different position
      */
     static async movePage(args) {
-        const { pageIndex, newPosition } = args;
+        // Schema name is position; newPosition kept for callers of the old handler name.
+        const { pageIndex, position, newPosition, referencePageIndex, binding = 'DEFAULT_VALUE' } = args;
 
         const code = `
-            const { LocationOptions } = require('indesign');
             if (app.documents.length === 0) return { success: false, error: 'No document open' };
             const doc = app.activeDocument;
-            if (${pageIndex} < 0 || ${pageIndex} >= doc.pages.length) return { success: false, error: 'Page index out of range' };
+            if (${JSON.stringify(pageIndex ?? null)} === null || ${pageIndex} < 0 || ${pageIndex} >= doc.pages.length) return { success: false, error: 'Page index out of range' };
+            ${PageHandlers.locationSnippet(position ?? newPosition, referencePageIndex)}
+            const { BindingOptions } = require('indesign');
+            const bindKey = ${JSON.stringify(String(binding).toUpperCase())};
+            const bind = BindingOptions[bindKey];
+            if (bind === undefined) return { success: false, error: 'Invalid binding: ' + bindKey };
             const page = doc.pages.item(${pageIndex});
-            const locMap = {
-                AT_END: LocationOptions.atEnd,
-                AT_BEGINNING: LocationOptions.atBeginning,
-                BEFORE: LocationOptions.before,
-                AFTER: LocationOptions.after
-            };
-            const loc = locMap[${JSON.stringify(newPosition)}] || LocationOptions.atEnd;
-            page.move(loc);
+            page.move(loc, ref, bind);
             return { success: true, pageIndex: page.documentOffset };
         `;
 
